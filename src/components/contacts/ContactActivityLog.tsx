@@ -21,8 +21,8 @@ const ContactActivityLog: React.FC<ContactActivityLogProps> = ({ activities }) =
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
-  const getActivityIcon = (type: Activity['type']) => {
-    switch (type) {
+  const getActivityIcon = (activity: Activity) => {
+    switch (activity.type) {
       case 'call':
         return <Phone className="h-4 w-4" />;
       case 'email':
@@ -32,15 +32,16 @@ const ContactActivityLog: React.FC<ContactActivityLogProps> = ({ activities }) =
       case 'note':
         return <MessageSquare className="h-4 w-4" />;
       case 'task':
-        return activity => 
-          activity.completed 
-            ? <CheckCircle2 className="h-4 w-4" /> 
-            : <AlertCircle className="h-4 w-4" />;
+        return activity.completed 
+          ? <CheckCircle2 className="h-4 w-4" /> 
+          : <AlertCircle className="h-4 w-4" />;
+      default:
+        return <MessageSquare className="h-4 w-4" />;
     }
   };
   
-  const getActivityColor = (type: Activity['type']) => {
-    switch (type) {
+  const getActivityColor = (activity: Activity) => {
+    switch (activity.type) {
       case 'call':
         return 'bg-green-100 text-green-800';
       case 'email':
@@ -50,10 +51,11 @@ const ContactActivityLog: React.FC<ContactActivityLogProps> = ({ activities }) =
       case 'note':
         return 'bg-yellow-100 text-yellow-800';
       case 'task':
-        return (activity: Activity) => 
-          activity.completed 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-orange-100 text-orange-800';
+        return activity.completed 
+          ? 'bg-green-100 text-green-800' 
+          : 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
   
@@ -81,9 +83,7 @@ const ContactActivityLog: React.FC<ContactActivityLogProps> = ({ activities }) =
               <div className="flex gap-3">
                 <div className="flex-shrink-0 mt-1">
                   <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                    {typeof getActivityIcon(activity.type) === 'function' 
-                      ? getActivityIcon(activity.type)(activity)
-                      : getActivityIcon(activity.type)}
+                    {getActivityIcon(activity)}
                   </div>
                 </div>
                 
@@ -92,11 +92,7 @@ const ContactActivityLog: React.FC<ContactActivityLogProps> = ({ activities }) =
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-medium">{activity.title}</h4>
                       <Badge 
-                        className={
-                          typeof getActivityColor(activity.type) === 'function'
-                            ? getActivityColor(activity.type)(activity)
-                            : getActivityColor(activity.type)
-                        }
+                        className={getActivityColor(activity)}
                       >
                         {activity.type}
                       </Badge>

@@ -19,9 +19,10 @@ import { format } from 'date-fns';
 
 interface ContactTableProps {
   contacts: Contact[];
+  onContactSelect: (contact: Contact) => void;
 }
 
-const ContactTable: React.FC<ContactTableProps> = ({ contacts }) => {
+const ContactTable: React.FC<ContactTableProps> = ({ contacts, onContactSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   
   const filteredContacts = contacts.filter(contact => {
@@ -91,7 +92,11 @@ const ContactTable: React.FC<ContactTableProps> = ({ contacts }) => {
               </TableRow>
             ) : (
               filteredContacts.map((contact) => (
-                <TableRow key={contact.id}>
+                <TableRow 
+                  key={contact.id} 
+                  className="cursor-pointer"
+                  onClick={() => onContactSelect(contact)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar>
@@ -119,7 +124,7 @@ const ContactTable: React.FC<ContactTableProps> = ({ contacts }) => {
                   <TableCell>
                     {contact.lastContact ? format(new Date(contact.lastContact), 'MMM d, yyyy') : '--'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
