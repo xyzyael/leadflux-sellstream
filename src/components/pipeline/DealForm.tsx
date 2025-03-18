@@ -19,9 +19,11 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { contacts } from '@/data/sampleData';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 const dealFormSchema = z.object({
   title: z.string().min(2, {
@@ -44,7 +46,7 @@ const dealFormSchema = z.object({
   description: z.string().optional(),
 });
 
-type DealFormValues = z.infer<typeof dealFormSchema>;
+export type DealFormValues = z.infer<typeof dealFormSchema>;
 
 interface DealFormProps {
   onSubmit: (values: DealFormValues) => void;
@@ -64,14 +66,75 @@ const DealForm: React.FC<DealFormProps> = ({
     description: ''
   } 
 }) => {
+  const { toast } = useToast();
   const form = useForm<DealFormValues>({
     resolver: zodResolver(dealFormSchema),
     defaultValues,
   });
 
+  const { data: contacts, isLoading } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('id, name, company')
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const handleSubmit = async (values: DealFormValues) => {
+    try {
+      const dealData = {
+        title: values.title,
+        value: Number(values.value),
+        stage: values.stage,
+        contact_id: values.contactId,
+        description: values.description || null,
+        probability: values.probability ? Number(values.probability) : null
+      };
+
+      if (defaultValues.id) {
+        // Updating existing deal
+        const { error } = await supabase
+          .from('deals')
+          .update(dealData)
+          .eq('id', defaultValues.id);
+
+        if (error) throw error;
+        toast({
+          title: "Deal updated",
+          description: `${values.title} has been updated successfully.`,
+        });
+      } else {
+        // Creating new deal
+        const { error } = await supabase
+          .from('deals')
+          .insert(dealData);
+
+        if (error) throw error;
+        toast({
+          title: "Deal created",
+          description: `${values.title} has been added successfully.`,
+        });
+      }
+      
+      onSubmit(values);
+    } catch (error) {
+      console.error('Error saving deal:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem saving the deal.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="title"
@@ -161,11 +224,17 @@ const DealForm: React.FC<DealFormProps> = ({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {contacts.map((contact) => (
-                      <SelectItem key={contact.id} value={contact.id}>
-                        {contact.name} {contact.company ? `(${contact.company})` : ''}
-                      </SelectItem>
-                    ))}
+                    {isLoading ? (
+                      <SelectItem value="" disabled>Loading contacts...</SelectItem>
+                    ) : contacts && contacts.length > 0 ? (
+                      contacts.map((contact) => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          {contact.name} {contact.company ? `(${contact.company})` : ''}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>No contacts found</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />

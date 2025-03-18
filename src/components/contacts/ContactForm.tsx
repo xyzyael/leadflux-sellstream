@@ -21,6 +21,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const contactFormSchema = z.object({
   name: z.string().min(2, {
@@ -36,7 +38,7 @@ const contactFormSchema = z.object({
   notes: z.string().optional(),
 });
 
-type ContactFormValues = z.infer<typeof contactFormSchema>;
+export type ContactFormValues = z.infer<typeof contactFormSchema>;
 
 interface ContactFormProps {
   onSubmit: (values: ContactFormValues) => void;
@@ -57,14 +59,69 @@ const ContactForm: React.FC<ContactFormProps> = ({
     notes: ''
   } 
 }) => {
+  const { toast } = useToast();
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(contactFormSchema),
     defaultValues,
   });
 
+  const handleSubmit = async (values: ContactFormValues) => {
+    try {
+      // If we have an id in defaultValues, we're updating an existing contact
+      if (defaultValues.id) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .update({
+            name: values.name,
+            email: values.email,
+            phone: values.phone || null,
+            company: values.company || null,
+            position: values.position || null,
+            status: values.status,
+          })
+          .eq('id', defaultValues.id);
+
+        if (error) throw error;
+        toast({
+          title: "Contact updated",
+          description: `${values.name} has been updated successfully.`,
+        });
+      } else {
+        // We're creating a new contact
+        const { data, error } = await supabase
+          .from('contacts')
+          .insert({
+            name: values.name,
+            email: values.email,
+            phone: values.phone || null,
+            company: values.company || null,
+            position: values.position || null,
+            status: values.status,
+          })
+          .select();
+
+        if (error) throw error;
+        toast({
+          title: "Contact created",
+          description: `${values.name} has been added successfully.`,
+        });
+      }
+      
+      // Call the passed onSubmit to close the form, refresh data, etc.
+      onSubmit(values);
+    } catch (error) {
+      console.error('Error saving contact:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem saving the contact.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
