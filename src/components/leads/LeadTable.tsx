@@ -411,6 +411,7 @@ const LeadTable: React.FC = () => {
                           title="Convert to Contact"
                           onClick={(e) => {
                             e.stopPropagation();
+                            console.log("Convert to Contact button clicked for:", lead.name);
                             handleOpenConvertDialog(lead);
                           }}
                         >
@@ -424,6 +425,7 @@ const LeadTable: React.FC = () => {
                         title="Convert to Contact"
                         onClick={(e) => {
                           e.stopPropagation();
+                          console.log("Convert to Contact button clicked for:", lead.name);
                           handleOpenConvertDialog(lead);
                         }}
                       >
@@ -445,7 +447,13 @@ const LeadTable: React.FC = () => {
       </div>
 
       {selectedLead && (
-        <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+        <Dialog 
+          open={showConvertDialog} 
+          onOpenChange={(open) => {
+            console.log("Dialog open state changed to:", open);
+            setShowConvertDialog(open);
+          }}
+        >
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Convert Lead to Contact</DialogTitle>
@@ -453,7 +461,10 @@ const LeadTable: React.FC = () => {
             <LeadToContactForm 
               lead={selectedLead}
               onSuccess={handleConvertSuccess}
-              onCancel={() => setShowConvertDialog(false)}
+              onCancel={() => {
+                console.log("Cancel button clicked in LeadToContactForm");
+                setShowConvertDialog(false);
+              }}
             />
           </DialogContent>
         </Dialog>

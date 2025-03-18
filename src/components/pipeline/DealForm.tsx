@@ -79,65 +79,29 @@ const DealForm: React.FC<DealFormProps> = ({
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts'],
     queryFn: async () => {
+      console.log("Fetching contacts for DealForm");
       const { data, error } = await supabase
         .from('contacts')
         .select('id, name, company')
         .order('name');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching contacts:", error);
+        throw error;
+      }
+      
+      console.log("Fetched contacts:", data);
       return data || [];
     }
   });
 
   const handleSubmit = async (values: DealFormValues) => {
-    try {
-      const dealData = {
-        title: values.title,
-        value: Number(values.value),
-        stage: values.stage,
-        contact_id: values.contactId,
-        description: values.description || null,
-        probability: values.probability ? Number(values.probability) : null
-      };
-
-      if (defaultValues.id) {
-        // Updating existing deal
-        const { error } = await supabase
-          .from('deals')
-          .update(dealData)
-          .eq('id', defaultValues.id);
-
-        if (error) throw error;
-        toast({
-          title: "Deal updated",
-          description: `${values.title} has been updated successfully.`,
-        });
-      } else {
-        // Creating new deal
-        const { error } = await supabase
-          .from('deals')
-          .insert(dealData);
-
-        if (error) throw error;
-        toast({
-          title: "Deal created",
-          description: `${values.title} has been added successfully.`,
-        });
-      }
-      
-      onSubmit(values);
-    } catch (error) {
-      console.error('Error saving deal:', error);
-      toast({
-        title: "Error",
-        description: "There was a problem saving the deal.",
-        variant: "destructive",
-      });
-    }
+    console.log("Form submitted with values:", values);
+    onSubmit(values);
   };
 
   const handleContactSuccess = (contactId: string) => {
-    // Update the form with the newly created contact
+    console.log("New contact created with ID:", contactId);
     form.setValue('contactId', contactId);
   };
 
@@ -237,7 +201,7 @@ const DealForm: React.FC<DealFormProps> = ({
                   </FormControl>
                   <SelectContent>
                     {isLoading ? (
-                      <SelectItem value="" disabled>Loading contacts...</SelectItem>
+                      <SelectItem value="">Loading contacts...</SelectItem>
                     ) : contacts && contacts.length > 0 ? (
                       contacts.map((contact) => (
                         <SelectItem key={contact.id} value={contact.id}>
@@ -245,7 +209,7 @@ const DealForm: React.FC<DealFormProps> = ({
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="" disabled>No contacts found</SelectItem>
+                      <SelectItem value="">No contacts found</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -274,7 +238,14 @@ const DealForm: React.FC<DealFormProps> = ({
         />
         
         <div className="flex justify-end space-x-2 pt-4">
-          <Button variant="outline" type="button" onClick={onCancel}>
+          <Button 
+            variant="outline" 
+            type="button" 
+            onClick={() => {
+              console.log("Cancel button clicked");
+              onCancel();
+            }}
+          >
             Cancel
           </Button>
           <Button type="submit">Save Deal</Button>

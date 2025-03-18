@@ -101,7 +101,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   };
   
   const handleRowClick = (deal: Deal) => {
-    console.log("Row clicked:", deal);
+    console.log("Deal row clicked:", deal);
     setSelectedDeal(deal);
     setShowDealDetails(true);
   };
@@ -132,12 +132,18 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
         
         const { error } = await supabase
           .from('deals')
-          .update(dealData)
+          .update({
+            title: updatedValues.title,
+            value: parseFloat(updatedValues.value),
+            stage: updatedValues.stage,
+            probability: updatedValues.probability ? parseInt(updatedValues.probability, 10) : null,
+            contact_id: updatedValues.contactId || null,
+            description: updatedValues.description || null
+          })
           .eq('id', selectedDeal.id);
           
         if (error) throw error;
         
-        // Refresh deals data
         queryClient.invalidateQueries({ queryKey: ['deals'] });
         
         toast({
@@ -284,7 +290,14 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                 <TableRow 
                   key={deal.id}
                   className="cursor-pointer"
-                  onClick={() => handleRowClick(deal)}
+                  onClick={(e) => {
+                    // Don't trigger if the dropdown is clicked
+                    if ((e.target as HTMLElement).closest('[data-dropdown-trigger]')) {
+                      return;
+                    }
+                    console.log("Deal row clicked:", deal.title);
+                    handleRowClick(deal);
+                  }}
                 >
                   <TableCell>
                     <div>
@@ -328,14 +341,17 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" data-dropdown-trigger>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleRowClick(deal)}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          handleRowClick(deal);
+                        }}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit</span>
                         </DropdownMenuItem>
@@ -361,14 +377,23 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
       </div>
       
       {selectedDeal && (
-        <Dialog open={showDealDetails} onOpenChange={setShowDealDetails}>
+        <Dialog 
+          open={showDealDetails} 
+          onOpenChange={(open) => {
+            console.log("Deal details dialog open state changed to:", open);
+            setShowDealDetails(open);
+          }}
+        >
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Deal Details</DialogTitle>
             </DialogHeader>
             <DealForm 
               onSubmit={handleUpdateDeal} 
-              onCancel={() => setShowDealDetails(false)} 
+              onCancel={() => {
+                console.log("Cancel button clicked in DealForm");
+                setShowDealDetails(false);
+              }}
               defaultValues={{
                 id: selectedDeal.id,
                 title: selectedDeal.title,

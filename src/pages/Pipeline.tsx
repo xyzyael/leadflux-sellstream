@@ -128,7 +128,14 @@ const Pipeline: React.FC = () => {
       
       const { error } = await supabase
         .from('deals')
-        .insert(dealData);
+        .insert({
+          title: values.title,
+          value: parseFloat(values.value),
+          stage: values.stage,
+          probability: values.probability ? parseInt(values.probability, 10) : null,
+          contact_id: values.contactId,
+          description: values.description || null
+        });
         
       if (error) throw error;
       
@@ -286,7 +293,12 @@ const Pipeline: React.FC = () => {
               />
             </div>
             
-            <Button onClick={() => setShowAddDeal(true)}>
+            <Button 
+              onClick={() => {
+                console.log("Add Deal button clicked");
+                setShowAddDeal(true);
+              }}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Deal
             </Button>
@@ -342,12 +354,24 @@ const Pipeline: React.FC = () => {
         )}
       </div>
       
-      <Dialog open={showAddDeal} onOpenChange={setShowAddDeal}>
+      <Dialog 
+        open={showAddDeal} 
+        onOpenChange={(open) => {
+          console.log("Add Deal dialog open state changed to:", open);
+          setShowAddDeal(open);
+        }}
+      >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Add New Deal</DialogTitle>
           </DialogHeader>
-          <DealForm onSubmit={handleAddDeal} onCancel={() => setShowAddDeal(false)} />
+          <DealForm 
+            onSubmit={handleAddDeal} 
+            onCancel={() => {
+              console.log("Cancel button clicked in DealForm");
+              setShowAddDeal(false);
+            }} 
+          />
         </DialogContent>
       </Dialog>
     </MainLayout>

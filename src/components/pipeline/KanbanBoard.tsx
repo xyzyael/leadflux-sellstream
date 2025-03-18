@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Deal } from '@/data/sampleData';
 import DealCard from './DealCard';
@@ -133,7 +134,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
         
         const { error } = await supabase
           .from('deals')
-          .update(dealData)
+          .update({
+            title: updatedValues.title,
+            value: parseFloat(updatedValues.value),
+            stage: updatedValues.stage,
+            probability: updatedValues.probability ? parseInt(updatedValues.probability, 10) : null,
+            contact_id: updatedValues.contactId || null,
+            description: updatedValues.description || null
+          })
           .eq('id', selectedDeal.id);
           
         if (error) throw error;
@@ -214,7 +222,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
                           draggable
                           onDragStart={() => handleDragStart(deal)}
                           onDragEnd={() => setDraggingDeal(null)}
-                          onClick={() => handleDealClick(deal)}
+                          onClick={(e) => {
+                            e.stopPropagation(); 
+                            console.log("Deal card clicked:", deal.title);
+                            handleDealClick(deal);
+                          }}
                           className={cn(
                             draggingDeal?.id === deal.id ? "opacity-50" : "opacity-100",
                             "transition-opacity duration-200",
@@ -244,14 +256,23 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
       </div>
       
       {selectedDeal && (
-        <Dialog open={showDealDetails} onOpenChange={setShowDealDetails}>
+        <Dialog 
+          open={showDealDetails} 
+          onOpenChange={(open) => {
+            console.log("Deal details dialog open state changed to:", open);
+            setShowDealDetails(open);
+          }}
+        >
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Deal Details</DialogTitle>
             </DialogHeader>
             <DealForm 
               onSubmit={handleUpdateDeal} 
-              onCancel={() => setShowDealDetails(false)} 
+              onCancel={() => {
+                console.log("Cancel button clicked in DealForm");
+                setShowDealDetails(false);
+              }}
               defaultValues={{
                 id: selectedDeal.id,
                 title: selectedDeal.title,
