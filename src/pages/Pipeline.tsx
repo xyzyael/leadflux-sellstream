@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import KanbanBoard from '@/components/pipeline/KanbanBoard';
@@ -26,8 +25,9 @@ import {
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Deal } from '@/data/sampleData';
+import { usePipelineDeals } from '@/hooks/usePipelineDeals';
 
 type ViewType = 'kanban' | 'table';
 
@@ -42,51 +42,7 @@ const Pipeline: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const { data: deals = [], isLoading } = useQuery({
-    queryKey: ['deals'],
-    queryFn: async () => {
-      console.log("Fetching deals data...");
-      const { data, error } = await supabase
-        .from('deals')
-        .select(`
-          id, 
-          title, 
-          value, 
-          stage, 
-          contact_id, 
-          created_at, 
-          closed_at, 
-          description, 
-          probability,
-          contacts (id, name, company)
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching deals:", error);
-        throw error;
-      }
-      
-      console.log("Fetched deals data:", data);
-      
-      return data.map((deal) => ({
-        id: deal.id,
-        title: deal.title,
-        value: deal.value,
-        stage: deal.stage,
-        contactId: deal.contact_id,
-        createdAt: deal.created_at,
-        closedAt: deal.closed_at,
-        description: deal.description,
-        probability: deal.probability,
-        contact: deal.contacts ? {
-          id: deal.contacts.id,
-          name: deal.contacts.name,
-          company: deal.contacts.company
-        } : undefined
-      })) as Deal[];
-    }
-  });
+  const { deals, isLoading } = usePipelineDeals();
   
   const dealsByStage = deals.reduce((acc, deal) => {
     if (!acc[deal.stage]) {
@@ -135,14 +91,7 @@ const Pipeline: React.FC = () => {
       
       const { error } = await supabase
         .from('deals')
-        .insert({
-          title: values.title,
-          value: parseFloat(values.value),
-          stage: values.stage,
-          probability: values.probability ? parseInt(values.probability, 10) : null,
-          contact_id: values.contactId,
-          description: values.description || null
-        });
+        .insert(dealData);
         
       if (error) throw error;
       
