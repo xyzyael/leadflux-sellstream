@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Deal } from '@/data/sampleData';
 import DealCard from './DealCard';
@@ -71,11 +70,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
     e.preventDefault();
     
     if (draggingDeal && draggingDeal.stage !== targetStage) {
-      // Create a copy of the deal with the updated stage
       const updatedDeal = { ...draggingDeal, stage: targetStage };
       
       try {
-        // Update the database
         const { error } = await supabase
           .from('deals')
           .update({ stage: targetStage })
@@ -85,7 +82,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
           throw error;
         }
         
-        // Refresh the data
         queryClient.invalidateQueries({ queryKey: ['deals'] });
         
         toast({
@@ -116,12 +112,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
       try {
         console.log("Updating deal with values:", updatedValues);
         
-        // Convert value to number if it's a string
         const value = typeof updatedValues.value === 'string' 
           ? parseFloat(updatedValues.value) 
           : updatedValues.value;
         
-        // Convert probability to number if it's a string
         const probability = updatedValues.probability 
           ? (typeof updatedValues.probability === 'string' 
               ? parseInt(updatedValues.probability, 10) 
@@ -144,7 +138,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
           
         if (error) throw error;
         
-        // Refresh the data
         queryClient.invalidateQueries({ queryKey: ['deals'] });
         
         toast({
@@ -224,7 +217,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
                           onClick={() => handleDealClick(deal)}
                           className={cn(
                             draggingDeal?.id === deal.id ? "opacity-50" : "opacity-100",
-                            "transition-opacity duration-200"
+                            "transition-opacity duration-200",
+                            "cursor-pointer"
                           )}
                         >
                           <DealCard 

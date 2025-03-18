@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -219,6 +220,11 @@ const LeadTable: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['leads'] });
     queryClient.invalidateQueries({ queryKey: ['contacts'] });
     queryClient.invalidateQueries({ queryKey: ['deals'] });
+    
+    toast({
+      title: "Lead converted",
+      description: `${selectedLead?.name} has been successfully converted to a contact.`,
+    });
   };
   
   return (
@@ -403,7 +409,10 @@ const LeadTable: React.FC = () => {
                           variant="ghost" 
                           size="icon"
                           title="Convert to Contact"
-                          onClick={() => handleOpenConvertDialog(lead)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenConvertDialog(lead);
+                          }}
                         >
                           <UserPlus className="h-4 w-4" />
                         </Button>
@@ -413,7 +422,10 @@ const LeadTable: React.FC = () => {
                         variant="ghost" 
                         size="icon"
                         title="Convert to Contact"
-                        onClick={() => handleOpenConvertDialog(lead)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenConvertDialog(lead);
+                        }}
                       >
                         <UserPlus className="h-4 w-4" />
                       </Button>
