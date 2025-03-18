@@ -5,18 +5,21 @@ import ContactList from '@/components/contacts/ContactList';
 import ContactTable from '@/components/contacts/ContactTable';
 import ContactGrid from '@/components/contacts/ContactGrid';
 import ContactForm from '@/components/contacts/ContactForm';
-import { contacts } from '@/data/sampleData';
+import ContactDetails from '@/components/contacts/ContactDetails';
+import { activities, contacts } from '@/data/sampleData';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Grid, Table, LayoutGrid, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Grid, Table, LayoutGrid } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Contact } from '@/data/sampleData';
 
 type ViewType = 'grid' | 'list' | 'table';
 
 const Contacts: React.FC = () => {
   const [viewType, setViewType] = useState<ViewType>('grid');
   const [showAddContact, setShowAddContact] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const { toast } = useToast();
   
   const handleAddContact = () => {
@@ -25,6 +28,29 @@ const Contacts: React.FC = () => {
       description: "The new contact has been added to your CRM.",
     });
     setShowAddContact(false);
+  };
+  
+  const handleContactSelect = (contact: Contact) => {
+    setSelectedContact(contact);
+  };
+  
+  const handleCloseContactDetails = () => {
+    setSelectedContact(null);
+  };
+  
+  // Get contact activities
+  const getContactActivities = (contactId: string) => {
+    return activities.filter(activity => activity.contactId === contactId);
+  };
+  
+  // Find colleagues (contacts from the same company)
+  const getColleagues = (contact: Contact) => {
+    if (!contact.company) return [];
+    return contacts.filter(c => 
+      c.id !== contact.id && 
+      c.company && 
+      c.company.toLowerCase() === contact.company?.toLowerCase()
+    );
   };
   
   return (
@@ -74,9 +100,24 @@ const Contacts: React.FC = () => {
           </div>
         </div>
         
-        {viewType === 'grid' && <ContactGrid contacts={contacts} />}
-        {viewType === 'list' && <ContactList contacts={contacts} />}
-        {viewType === 'table' && <ContactTable contacts={contacts} />}
+        {viewType === 'grid' && (
+          <ContactGrid 
+            contacts={contacts} 
+            onContactSelect={handleContactSelect}
+          />
+        )}
+        {viewType === 'list' && (
+          <ContactList 
+            contacts={contacts}
+            onContactSelect={handleContactSelect}
+          />
+        )}
+        {viewType === 'table' && (
+          <ContactTable 
+            contacts={contacts}
+            onContactSelect={handleContactSelect}
+          />
+        )}
       </div>
       
       <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
@@ -87,6 +128,30 @@ const Contacts: React.FC = () => {
           <ContactForm onSubmit={handleAddContact} onCancel={() => setShowAddContact(false)} />
         </DialogContent>
       </Dialog>
+      
+      <Sheet open={!!selectedContact} onOpenChange={(open) => !open && setSelectedContact(null)}>
+        <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+          <SheetHeader className="flex flex-row items-start justify-between">
+            <SheetTitle>Contact Details</SheetTitle>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleCloseContactDetails}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </SheetHeader>
+          
+          {selectedContact && (
+            <ContactDetails 
+              contact={selectedContact}
+              activities={getContactActivities(selectedContact.id)} 
+              colleagues={getColleagues(selectedContact)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </MainLayout>
   );
 };

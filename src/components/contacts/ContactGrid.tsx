@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Contact } from '@/data/sampleData';
 import ContactCard from './ContactCard';
@@ -33,12 +32,13 @@ import { cn } from '@/lib/utils';
 
 interface ContactGridProps {
   contacts: Contact[];
+  onContactSelect?: (contact: Contact) => void;
 }
 
 type SortField = 'name' | 'company' | 'createdAt' | 'lastContact';
 type SortDirection = 'asc' | 'desc';
 
-const ContactGrid: React.FC<ContactGridProps> = ({ contacts }) => {
+const ContactGrid: React.FC<ContactGridProps> = ({ contacts, onContactSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -46,10 +46,8 @@ const ContactGrid: React.FC<ContactGridProps> = ({ contacts }) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   
-  // Get all unique tags from contacts
   const allTags = Array.from(new Set(contacts.flatMap(contact => contact.tags || [])));
   
-  // Filter contacts
   const filteredContacts = contacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,7 +61,6 @@ const ContactGrid: React.FC<ContactGridProps> = ({ contacts }) => {
     return matchesSearch && matchesStatus && matchesTags;
   });
   
-  // Sort contacts
   const sortedContacts = [...filteredContacts].sort((a, b) => {
     let comparison = 0;
     
@@ -275,7 +272,12 @@ const ContactGrid: React.FC<ContactGridProps> = ({ contacts }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedContacts.map((contact) => (
-            <ContactCard key={contact.id} contact={contact} className="animate-scale-in" />
+            <ContactCard 
+              key={contact.id} 
+              contact={contact} 
+              className="animate-scale-in"
+              onContactSelect={onContactSelect}
+            />
           ))}
         </div>
       )}

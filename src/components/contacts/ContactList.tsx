@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 
 interface ContactListProps {
   contacts: Contact[];
+  onContactSelect?: (contact: Contact) => void;
 }
 
-const ContactList: React.FC<ContactListProps> = ({ contacts }) => {
+const ContactList: React.FC<ContactListProps> = ({ contacts, onContactSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
@@ -67,7 +68,12 @@ const ContactList: React.FC<ContactListProps> = ({ contacts }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredContacts.map((contact) => (
-            <ContactCard key={contact.id} contact={contact} className="animate-scale-in" />
+            <ContactCard 
+              key={contact.id} 
+              contact={contact} 
+              className="animate-scale-in"
+              onContactSelect={onContactSelect}
+            />
           ))}
         </div>
       )}

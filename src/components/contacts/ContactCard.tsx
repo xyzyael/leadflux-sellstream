@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils';
 interface ContactCardProps {
   contact: Contact;
   className?: string;
+  onContactSelect?: (contact: Contact) => void;
 }
 
-const ContactCard: React.FC<ContactCardProps> = ({ contact, className }) => {
+const ContactCard: React.FC<ContactCardProps> = ({ contact, className, onContactSelect }) => {
   // Status badge color
   const getStatusColor = (status: Contact['status']) => {
     switch (status) {
@@ -64,7 +65,13 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, className }) => {
   };
 
   return (
-    <Card className={cn("overflow-hidden hover:shadow-md transition-all duration-300", className)}>
+    <Card 
+      className={cn(
+        "overflow-hidden hover:shadow-md transition-all duration-300 cursor-pointer", 
+        className
+      )}
+      onClick={() => onContactSelect?.(contact)}
+    >
       <CardContent className="p-4">
         <div className="flex items-start space-x-4">
           <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
