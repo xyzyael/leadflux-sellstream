@@ -74,12 +74,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
       const updatedDeal = { ...draggingDeal, stage: targetStage };
       
       try {
+        console.log("Updating deal stage:", draggingDeal.id, "to", targetStage);
         const { error } = await supabase
           .from('deals')
           .update({ stage: targetStage })
           .eq('id', draggingDeal.id);
             
         if (error) {
+          console.error("Error in supabase update:", error);
           throw error;
         }
         
@@ -132,6 +134,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
           description: updatedValues.description || null
         };
         
+        console.log("Sending update to supabase for deal ID:", selectedDeal.id, "with data:", dealData);
+        
         const { error } = await supabase
           .from('deals')
           .update({
@@ -144,7 +148,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
           })
           .eq('id', selectedDeal.id);
           
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase update error:", error);
+          throw error;
+        }
         
         queryClient.invalidateQueries({ queryKey: ['deals'] });
         
@@ -261,6 +268,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
           onOpenChange={(open) => {
             console.log("Deal details dialog open state changed to:", open);
             setShowDealDetails(open);
+            if (!open) {
+              setSelectedDeal(null);
+            }
           }}
         >
           <DialogContent className="sm:max-w-[500px]">

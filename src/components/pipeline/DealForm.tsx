@@ -71,6 +71,8 @@ const DealForm: React.FC<DealFormProps> = ({
   const { toast } = useToast();
   const [showQuickAddContact, setShowQuickAddContact] = useState(false);
   
+  console.log("DealForm initialized with defaultValues:", defaultValues);
+  
   const form = useForm<DealFormValues>({
     resolver: zodResolver(dealFormSchema),
     defaultValues,
@@ -193,6 +195,7 @@ const DealForm: React.FC<DealFormProps> = ({
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -201,7 +204,7 @@ const DealForm: React.FC<DealFormProps> = ({
                   </FormControl>
                   <SelectContent>
                     {isLoading ? (
-                      <SelectItem value="">Loading contacts...</SelectItem>
+                      <SelectItem value="loading">Loading contacts...</SelectItem>
                     ) : contacts && contacts.length > 0 ? (
                       contacts.map((contact) => (
                         <SelectItem key={contact.id} value={contact.id}>
@@ -209,7 +212,7 @@ const DealForm: React.FC<DealFormProps> = ({
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="">No contacts found</SelectItem>
+                      <SelectItem value="none">No contacts found</SelectItem>
                     )}
                   </SelectContent>
                 </Select>

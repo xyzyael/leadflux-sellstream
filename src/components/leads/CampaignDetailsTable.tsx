@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ArrowLeft, Check, X } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, X, UserPlus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,6 +10,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { leads } from '@/data/sampleData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import LeadToContactForm from './LeadToContactForm';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CampaignDetailsTableProps {
   campaignId: string;
@@ -23,10 +26,13 @@ const CampaignDetailsTable: React.FC<CampaignDetailsTableProps> = ({
   onBack 
 }) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [campaignLeads, setCampaignLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<any>(null);
   
   // For demo purposes, filter leads from sample data
   // In a real application, this would be fetched from the database
@@ -176,6 +182,25 @@ const CampaignDetailsTable: React.FC<CampaignDetailsTableProps> = ({
     }
   };
   
+  const handleOpenConvertDialog = (lead: any) => {
+    console.log("Opening convert dialog for lead:", lead);
+    setSelectedLead(lead);
+    setShowConvertDialog(true);
+  };
+  
+  const handleConvertSuccess = () => {
+    setShowConvertDialog(false);
+    setSelectedLead(null);
+    
+    // In a real app, you'd invalidate queries here
+    // queryClient.invalidateQueries({ queryKey: ['leads'] });
+    
+    toast({
+      title: "Lead converted",
+      description: `${selectedLead?.name} has been successfully converted to a contact.`,
+    });
+  };
+  
   const filteredLeads = campaignLeads.filter(lead => {
     const matchesSearch = !searchQuery || 
       lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -296,7 +321,7 @@ const CampaignDetailsTable: React.FC<CampaignDetailsTableProps> = ({
               <TableHead>Company</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right w-[200px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -350,7 +375,35 @@ const CampaignDetailsTable: React.FC<CampaignDetailsTableProps> = ({
                           >
                             <ArrowRight className="h-4 w-4" />
                           </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            title="Convert to Contact"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log("Convert to Contact button clicked for:", lead.name);
+                              handleOpenConvertDialog(lead);
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4 mr-1" />
+                            <span>Convert</span>
+                          </Button>
                         </>
+                      )}
+                      {lead.status === 'in_pipeline' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          title="Convert to Contact"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log("Convert to Contact button clicked for:", lead.name);
+                            handleOpenConvertDialog(lead);
+                          }}
+                        >
+                          <UserPlus className="h-4 w-4 mr-1" />
+                          <span>Convert</span>
+                        </Button>
                       )}
                     </div>
                   </TableCell>
@@ -366,6 +419,32 @@ const CampaignDetailsTable: React.FC<CampaignDetailsTableProps> = ({
           </TableBody>
         </Table>
       </div>
+
+      {selectedLead && (
+        <Dialog 
+          open={showConvertDialog} 
+          onOpenChange={(open) => {
+            console.log("Dialog open state changed to:", open);
+            if (!open) {
+              setShowConvertDialog(false);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Convert Lead to Contact</DialogTitle>
+            </DialogHeader>
+            <LeadToContactForm 
+              lead={selectedLead}
+              onSuccess={handleConvertSuccess}
+              onCancel={() => {
+                console.log("Cancel button clicked in LeadToContactForm");
+                setShowConvertDialog(false);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

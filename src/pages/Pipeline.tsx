@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import KanbanBoard from '@/components/pipeline/KanbanBoard';
@@ -44,6 +45,7 @@ const Pipeline: React.FC = () => {
   const { data: deals = [], isLoading } = useQuery({
     queryKey: ['deals'],
     queryFn: async () => {
+      console.log("Fetching deals data...");
       const { data, error } = await supabase
         .from('deals')
         .select(`
@@ -60,7 +62,12 @@ const Pipeline: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching deals:", error);
+        throw error;
+      }
+      
+      console.log("Fetched deals data:", data);
       
       return data.map((deal) => ({
         id: deal.id,
