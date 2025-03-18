@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Deal } from '@/data/sampleData';
 import DealCard from './DealCard';
 import { Plus, ChevronsUpDown } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import DealForm from './DealForm';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface KanbanBoardProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
@@ -106,6 +106,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
   };
   
   const handleDealClick = (deal: Deal) => {
+    console.log("Deal clicked:", deal);
     setSelectedDeal(deal);
     setShowDealDetails(true);
   };
@@ -113,6 +114,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
   const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
       try {
+        console.log("Updating deal with values:", updatedValues);
+        
         // Convert value to number if it's a string
         const value = typeof updatedValues.value === 'string' 
           ? parseFloat(updatedValues.value) 
@@ -246,7 +249,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
         })}
       </div>
       
-      {showDealDetails && selectedDeal && (
+      {selectedDeal && (
         <Dialog open={showDealDetails} onOpenChange={setShowDealDetails}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
@@ -261,7 +264,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
                 value: selectedDeal.value.toString(),
                 stage: selectedDeal.stage,
                 probability: selectedDeal.probability?.toString() || '',
-                contactId: selectedDeal.contactId,
+                contactId: selectedDeal.contactId || '',
                 description: selectedDeal.description || ''
               }}
             />

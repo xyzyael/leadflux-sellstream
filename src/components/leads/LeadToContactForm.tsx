@@ -70,6 +70,8 @@ const LeadToContactForm: React.FC<LeadToContactFormProps> = ({ lead, onSuccess, 
 
   const handleSubmit = async (values: ContactFormValues) => {
     try {
+      console.log("Converting lead to contact", values);
+      
       // First, create the contact
       const { data: contact, error: contactError } = await supabase
         .from('contacts')
@@ -84,7 +86,12 @@ const LeadToContactForm: React.FC<LeadToContactFormProps> = ({ lead, onSuccess, 
         .select('id')
         .single();
 
-      if (contactError) throw contactError;
+      if (contactError) {
+        console.error("Contact creation error:", contactError);
+        throw contactError;
+      }
+
+      console.log("Created contact", contact);
 
       // Update the lead status to 'in_pipeline'
       const { error: leadError } = await supabase
@@ -92,14 +99,23 @@ const LeadToContactForm: React.FC<LeadToContactFormProps> = ({ lead, onSuccess, 
         .update({ status: 'in_pipeline' })
         .eq('id', lead.id);
 
-      if (leadError) throw leadError;
+      if (leadError) {
+        console.error("Lead update error:", leadError);
+        throw leadError;
+      }
+
+      console.log("Updated lead status");
 
       // Create a new deal if the contact was created successfully
       if (contact && contact.id) {
+        const dealTitle = values.company 
+          ? `${values.company} Deal` 
+          : `${values.name} Deal`;
+          
         const { error: dealError } = await supabase
           .from('deals')
           .insert({
-            title: `${values.company ? values.company : values.name} Deal`,
+            title: dealTitle,
             value: 0, // Default value, can be updated later
             stage: 'lead',
             contact_id: contact.id,
@@ -107,7 +123,12 @@ const LeadToContactForm: React.FC<LeadToContactFormProps> = ({ lead, onSuccess, 
             probability: 10, // Default probability
           });
 
-        if (dealError) throw dealError;
+        if (dealError) {
+          console.error("Deal creation error:", dealError);
+          throw dealError;
+        }
+        
+        console.log("Created deal for contact");
       }
 
       // Refresh the data

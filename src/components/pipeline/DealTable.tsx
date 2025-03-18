@@ -101,6 +101,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   };
   
   const handleRowClick = (deal: Deal) => {
+    console.log("Row clicked:", deal);
     setSelectedDeal(deal);
     setShowDealDetails(true);
   };
@@ -108,6 +109,8 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
       try {
+        console.log("Updating deal with values:", updatedValues);
+        
         const value = typeof updatedValues.value === 'string' 
           ? parseFloat(updatedValues.value) 
           : updatedValues.value;
@@ -357,7 +360,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
         </Table>
       </div>
       
-      {showDealDetails && selectedDeal && (
+      {selectedDeal && (
         <Dialog open={showDealDetails} onOpenChange={setShowDealDetails}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
@@ -372,7 +375,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                 value: selectedDeal.value.toString(),
                 stage: selectedDeal.stage,
                 probability: selectedDeal.probability?.toString() || '',
-                contactId: selectedDeal.contactId,
+                contactId: selectedDeal.contactId || '',
                 description: selectedDeal.description || ''
               }}
             />
