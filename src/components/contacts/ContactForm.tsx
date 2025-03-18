@@ -43,7 +43,7 @@ export type ContactFormValues = z.infer<typeof contactFormSchema>;
 interface ContactFormProps {
   onSubmit: (values: ContactFormValues) => void;
   onCancel: () => void;
-  defaultValues?: Partial<ContactFormValues>;
+  defaultValues?: Partial<ContactFormValues> & { id?: string }; // Added id property
 }
 
 const ContactForm: React.FC<ContactFormProps> = ({ 

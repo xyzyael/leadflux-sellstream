@@ -51,7 +51,7 @@ export type DealFormValues = z.infer<typeof dealFormSchema>;
 interface DealFormProps {
   onSubmit: (values: DealFormValues) => void;
   onCancel: () => void;
-  defaultValues?: Partial<DealFormValues>;
+  defaultValues?: Partial<DealFormValues> & { id?: string }; // Added id property
 }
 
 const DealForm: React.FC<DealFormProps> = ({ 
