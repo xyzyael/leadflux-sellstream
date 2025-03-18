@@ -184,7 +184,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
       const { error } = await supabase
         .from('deals')
         .delete()
-        .eq('id', dealId);
+        .eq('id', dealId.toString()); // Convert dealId to string to ensure compatibility
         
       if (error) throw error;
       
