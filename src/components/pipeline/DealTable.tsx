@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Deal } from '@/data/sampleData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import DealForm from './DealForm';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface DealTableProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
@@ -26,12 +28,12 @@ interface DealTableProps {
 
 const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Deal; direction: 'asc' | 'desc' } | null>(null);
   const [showDealDetails, setShowDealDetails] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
-  const [stageColors, setStageColors] = useState<Record<string, string>>({});
   
   // Flatten deals array
   const allDeals = Object.values(dealsByStage).flat();
@@ -106,17 +108,6 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
       try {
-        const isDemoData = typeof selectedDeal.id === 'number' || !selectedDeal.id.includes('-');
-        
-        if (isDemoData) {
-          toast({
-            title: "Deal updated (Demo Mode)",
-            description: `${updatedValues.title} has been updated successfully.`,
-          });
-          setShowDealDetails(false);
-          return;
-        }
-        
         const value = typeof updatedValues.value === 'string' 
           ? parseFloat(updatedValues.value) 
           : updatedValues.value;
@@ -143,6 +134,9 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
           
         if (error) throw error;
         
+        // Refresh deals data
+        queryClient.invalidateQueries({ queryKey: ['deals'] });
+        
         toast({
           title: "Deal updated",
           description: `${updatedValues.title} has been updated successfully.`,
@@ -161,21 +155,6 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   
   const handleStageChange = async (deal: Deal, newStage: Deal['stage']) => {
     try {
-      const isDemoData = typeof deal.id === 'number' || !String(deal.id).includes('-');
-      
-      if (isDemoData) {
-        setStageColors(prev => ({
-          ...prev,
-          [String(deal.id)]: getStageColor(newStage)
-        }));
-        
-        toast({
-          title: "Stage updated (Demo Mode)",
-          description: `Deal stage changed to ${newStage}`,
-        });
-        return;
-      }
-      
       const { error } = await supabase
         .from('deals')
         .update({ stage: newStage })
@@ -183,10 +162,8 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
         
       if (error) throw error;
       
-      setStageColors(prev => ({
-        ...prev,
-        [deal.id]: getStageColor(newStage)
-      }));
+      // Refresh deals data
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
       
       toast({
         title: "Stage updated",
@@ -204,22 +181,15 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   
   const handleDeleteDeal = async (dealId: string | number) => {
     try {
-      const isDemoData = typeof dealId === 'number' || !String(dealId).includes('-');
-      
-      if (isDemoData) {
-        toast({
-          title: "Deal deleted (Demo Mode)",
-          description: "The deal has been removed successfully.",
-        });
-        return;
-      }
-      
       const { error } = await supabase
         .from('deals')
         .delete()
         .eq('id', dealId);
         
       if (error) throw error;
+      
+      // Refresh deals data
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
       
       toast({
         title: "Deal deleted",
@@ -326,7 +296,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                       defaultValue={deal.stage}
                       onValueChange={(value) => handleStageChange(deal, value as Deal['stage'])}
                     >
-                      <SelectTrigger className={`w-[130px] ${stageColors[String(deal.id)] || getStageColor(deal.stage)}`}>
+                      <SelectTrigger className={`w-[130px] ${getStageColor(deal.stage)}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

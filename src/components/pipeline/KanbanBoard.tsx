@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Deal } from '@/data/sampleData';
 import DealCard from './DealCard';
 import { Plus, ChevronsUpDown } from 'lucide-react';
@@ -8,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import DealForm from './DealForm';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface KanbanBoardProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
@@ -15,6 +17,7 @@ interface KanbanBoardProps {
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [draggingDeal, setDraggingDeal] = useState<Deal | null>(null);
   const [collapseStages, setCollapseStages] = useState<Record<string, boolean>>({});
   const [showDealDetails, setShowDealDetails] = useState(false);
@@ -72,31 +75,23 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
       const updatedDeal = { ...draggingDeal, stage: targetStage };
       
       try {
-        // Important: First, check if we're dealing with sample data that might not be in the database
-        const isDemoData = typeof draggingDeal.id === 'number' || !draggingDeal.id.includes('-');
-        
-        if (isDemoData) {
-          // For demo data, just show a success message without actually updating the database
-          toast({
-            title: "Deal moved (Demo Mode)",
-            description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
-          });
-        } else {
-          // This is real data with UUID, update the database
-          const { error } = await supabase
-            .from('deals')
-            .update({ stage: targetStage })
-            .eq('id', draggingDeal.id);
+        // Update the database
+        const { error } = await supabase
+          .from('deals')
+          .update({ stage: targetStage })
+          .eq('id', draggingDeal.id);
             
-          if (error) {
-            throw error;
-          }
-          
-          toast({
-            title: "Deal moved",
-            description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
-          });
+        if (error) {
+          throw error;
         }
+        
+        // Refresh the data
+        queryClient.invalidateQueries({ queryKey: ['deals'] });
+        
+        toast({
+          title: "Deal moved",
+          description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
+        });
       } catch (error) {
         console.error('Error updating deal:', error);
         toast({
@@ -118,19 +113,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
   const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
       try {
-        // Check if we're dealing with sample data that might not be in the database
-        const isDemoData = typeof selectedDeal.id === 'number' || !selectedDeal.id.includes('-');
-        
-        if (isDemoData) {
-          // For demo data, just show a success message without actually updating the database
-          toast({
-            title: "Deal updated (Demo Mode)",
-            description: `${updatedValues.title} has been updated successfully.`,
-          });
-          setShowDealDetails(false);
-          return;
-        }
-        
         // Convert value to number if it's a string
         const value = typeof updatedValues.value === 'string' 
           ? parseFloat(updatedValues.value) 
@@ -158,6 +140,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
           .eq('id', selectedDeal.id);
           
         if (error) throw error;
+        
+        // Refresh the data
+        queryClient.invalidateQueries({ queryKey: ['deals'] });
         
         toast({
           title: "Deal updated",

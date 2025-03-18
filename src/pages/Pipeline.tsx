@@ -4,7 +4,6 @@ import MainLayout from '@/components/layout/MainLayout';
 import KanbanBoard from '@/components/pipeline/KanbanBoard';
 import DealTable from '@/components/pipeline/DealTable';
 import DealForm from '@/components/pipeline/DealForm';
-import { getDealsByStage, getTotalDealValue, getOpenDealValue } from '@/data/sampleData';
 import { Button } from '@/components/ui/button';
 import { Plus, Kanban, Table, Filter, SlidersHorizontal } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -26,6 +25,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Deal } from '@/data/sampleData';
 
 type ViewType = 'kanban' | 'table';
 
@@ -38,10 +40,60 @@ const Pipeline: React.FC = () => {
   const [selectedStages, setSelectedStages] = useState<string[]>(['lead', 'contact', 'proposal', 'negotiation', 'closed']);
   
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
-  const dealsByStage = getDealsByStage();
-  const totalDealValue = getTotalDealValue();
-  const openDealValue = getOpenDealValue();
+  // Fetch deals from Supabase
+  const { data: deals = [], isLoading } = useQuery({
+    queryKey: ['deals'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deals')
+        .select(`
+          id, 
+          title, 
+          value, 
+          stage, 
+          contact_id, 
+          created_at, 
+          closed_at, 
+          description, 
+          probability,
+          contacts (id, name, company)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      return data.map((deal) => ({
+        id: deal.id,
+        title: deal.title,
+        value: deal.value,
+        stage: deal.stage,
+        contactId: deal.contact_id,
+        createdAt: deal.created_at,
+        closedAt: deal.closed_at,
+        description: deal.description,
+        probability: deal.probability,
+        contact: deal.contacts ? {
+          id: deal.contacts.id,
+          name: deal.contacts.name,
+          company: deal.contacts.company
+        } : undefined
+      })) as Deal[];
+    }
+  });
+  
+  // Organize deals by stage
+  const dealsByStage = deals.reduce((acc, deal) => {
+    if (!acc[deal.stage]) {
+      acc[deal.stage] = [];
+    }
+    acc[deal.stage].push(deal);
+    return acc;
+  }, {} as Record<Deal['stage'], Deal[]>);
+  
+  const totalDealValue = deals.reduce((sum, deal) => sum + deal.value, 0);
+  const openDealValue = deals.filter(deal => deal.stage !== 'closed').reduce((sum, deal) => sum + deal.value, 0);
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -52,12 +104,51 @@ const Pipeline: React.FC = () => {
     }).format(value);
   };
   
-  const handleAddDeal = () => {
-    toast({
-      title: "Deal added successfully",
-      description: "The new deal has been added to your pipeline.",
-    });
-    setShowAddDeal(false);
+  const handleAddDeal = async (values: any) => {
+    try {
+      // Convert value to number
+      const value = typeof values.value === 'string' 
+        ? parseFloat(values.value) 
+        : values.value;
+      
+      // Convert probability to number if it exists
+      const probability = values.probability 
+        ? (typeof values.probability === 'string' 
+            ? parseInt(values.probability, 10) 
+            : values.probability)
+        : null;
+      
+      const dealData = {
+        title: values.title,
+        value,
+        stage: values.stage,
+        probability,
+        contact_id: values.contactId,
+        description: values.description || null
+      };
+      
+      const { error } = await supabase
+        .from('deals')
+        .insert(dealData);
+        
+      if (error) throw error;
+      
+      // Refresh deals data
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      
+      toast({
+        title: "Deal added successfully",
+        description: "The new deal has been added to your pipeline.",
+      });
+      setShowAddDeal(false);
+    } catch (error) {
+      console.error('Error adding deal:', error);
+      toast({
+        title: "Error",
+        description: "Could not add deal. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   const handleStageToggle = (stage: string) => {
@@ -68,9 +159,9 @@ const Pipeline: React.FC = () => {
     }
   };
   
-  const filteredDealsByStage = Object.entries(dealsByStage).reduce((acc, [stage, deals]) => {
+  const filteredDealsByStage = Object.entries(dealsByStage).reduce((acc, [stage, stageDeals]) => {
     if (selectedStages.includes(stage)) {
-      const filteredDeals = deals.filter(deal => {
+      const filteredDeals = stageDeals.filter(deal => {
         const matchesSearch = !searchQuery || 
           deal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (deal.description && deal.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -233,7 +324,7 @@ const Pipeline: React.FC = () => {
                   <p className="text-sm font-medium text-muted-foreground">Open Deal Value</p>
                   <h3 className="text-2xl font-bold">{formatCurrency(openDealValue)}</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {Math.round((openDealValue / totalDealValue) * 100)}% of total
+                    {totalDealValue > 0 ? Math.round((openDealValue / totalDealValue) * 100) : 0}% of total
                   </p>
                 </div>
               </div>
@@ -241,8 +332,16 @@ const Pipeline: React.FC = () => {
           </Card>
         </div>
         
-        {viewType === 'kanban' && <KanbanBoard dealsByStage={filteredDealsByStage} />}
-        {viewType === 'table' && <DealTable dealsByStage={filteredDealsByStage} />}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <p>Loading deals...</p>
+          </div>
+        ) : (
+          <>
+            {viewType === 'kanban' && <KanbanBoard dealsByStage={filteredDealsByStage} />}
+            {viewType === 'table' && <DealTable dealsByStage={filteredDealsByStage} />}
+          </>
+        )}
       </div>
       
       <Dialog open={showAddDeal} onOpenChange={setShowAddDeal}>
