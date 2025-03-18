@@ -106,12 +106,12 @@ const Pipeline: React.FC = () => {
   
   const handleAddDeal = async (values: any) => {
     try {
-      // Convert value to number
+      // We directly use the values from the form since it's already validated
+      // Convert value and probability to numbers
       const value = typeof values.value === 'string' 
         ? parseFloat(values.value) 
         : values.value;
       
-      // Convert probability to number if it exists
       const probability = values.probability 
         ? (typeof values.probability === 'string' 
             ? parseInt(values.probability, 10) 

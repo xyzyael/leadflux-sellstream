@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { 
   Form, 
@@ -24,6 +24,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import ContactQuickAdd from './ContactQuickAdd';
+import { UserPlus } from 'lucide-react';
 
 const dealFormSchema = z.object({
   title: z.string().min(2, {
@@ -51,7 +53,7 @@ export type DealFormValues = z.infer<typeof dealFormSchema>;
 interface DealFormProps {
   onSubmit: (values: DealFormValues) => void;
   onCancel: () => void;
-  defaultValues?: Partial<DealFormValues> & { id?: string }; // Added id property
+  defaultValues?: Partial<DealFormValues> & { id?: string };
 }
 
 const DealForm: React.FC<DealFormProps> = ({ 
@@ -67,12 +69,14 @@ const DealForm: React.FC<DealFormProps> = ({
   } 
 }) => {
   const { toast } = useToast();
+  const [showQuickAddContact, setShowQuickAddContact] = useState(false);
+  
   const form = useForm<DealFormValues>({
     resolver: zodResolver(dealFormSchema),
     defaultValues,
   });
 
-  const { data: contacts, isLoading } = useQuery({
+  const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -130,6 +134,11 @@ const DealForm: React.FC<DealFormProps> = ({
         variant: "destructive",
       });
     }
+  };
+
+  const handleContactSuccess = (contactId: string) => {
+    // Update the form with the newly created contact
+    form.setValue('contactId', contactId);
   };
 
   return (
@@ -213,7 +222,10 @@ const DealForm: React.FC<DealFormProps> = ({
             name="contactId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Associated Contact*</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Associated Contact*</FormLabel>
+                  <ContactQuickAdd onSuccess={handleContactSuccess} />
+                </div>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}

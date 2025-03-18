@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Search, ArrowRight, RefreshCw, Filter } from 'lucide-react';
+import { Search, ArrowRight, RefreshCw, Filter, UserPlus } from 'lucide-react';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -28,15 +28,88 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { leads, leadCampaigns } from '@/data/sampleData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import LeadToContactForm from './LeadToContactForm';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Lead {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  position?: string;
+  status: string;
+  createdAt: string;
+  campaignId?: string;
+}
+
+interface Campaign {
+  id: string;
+  name: string;
+}
 
 const LeadTable: React.FC = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string[]>(['new', 'contacted', 'qualified']);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
+  // Fetch leads from Supabase
+  const { data: leads = [], isLoading: isLoadingLeads } = useQuery({
+    queryKey: ['leads'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select(`
+          id,
+          name,
+          email,
+          phone,
+          company,
+          position,
+          status,
+          created_at,
+          campaign_id
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      return data.map(lead => ({
+        id: lead.id,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        company: lead.company,
+        position: lead.position,
+        status: lead.status,
+        createdAt: lead.created_at,
+        campaignId: lead.campaign_id
+      })) as Lead[];
+    }
+  });
+  
+  // Fetch campaigns from Supabase
+  const { data: campaigns = [], isLoading: isLoadingCampaigns } = useQuery({
+    queryKey: ['campaigns'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      
+      return data as Campaign[];
+    }
+  });
+
   const handleStatusFilterChange = (status: string) => {
     setStatusFilter(current => 
       current.includes(status)
@@ -60,7 +133,7 @@ const LeadTable: React.FC = () => {
   
   const handleSelectAllLeads = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(filteredLeads.map(lead => lead.id));
+      setSelectedLeads(filteredLeads.filter(lead => lead.status !== 'in_pipeline').map(lead => lead.id));
     } else {
       setSelectedLeads([]);
     }
@@ -74,7 +147,7 @@ const LeadTable: React.FC = () => {
     );
   };
   
-  const handleMoveToPipeline = () => {
+  const handleMoveToPipeline = async () => {
     if (selectedLeads.length === 0) {
       toast({
         title: "No leads selected",
@@ -84,14 +157,38 @@ const LeadTable: React.FC = () => {
       return;
     }
     
-    // In a real app, we would update the leads in the database here
-    toast({
-      title: "Leads moved to pipeline",
-      description: `${selectedLeads.length} leads have been moved to the pipeline.`
-    });
-    
-    // Clear selections after moving
-    setSelectedLeads([]);
+    try {
+      // Update leads status to 'in_pipeline'
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: 'in_pipeline' })
+        .in('id', selectedLeads);
+      
+      if (error) throw error;
+      
+      // Refresh leads data
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      
+      toast({
+        title: "Leads moved to pipeline",
+        description: `${selectedLeads.length} leads have been moved to the pipeline.`
+      });
+      
+      // Clear selections after moving
+      setSelectedLeads([]);
+    } catch (error) {
+      console.error('Error moving leads to pipeline:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem updating leads. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handleOpenConvertDialog = (lead: Lead) => {
+    setSelectedLead(lead);
+    setShowConvertDialog(true);
   };
   
   const getStatusBadge = (status: string) => {
@@ -111,9 +208,22 @@ const LeadTable: React.FC = () => {
     }
   };
   
-  const getCampaignName = (campaignId: string) => {
-    const campaign = leadCampaigns.find(c => c.id === campaignId);
+  const getCampaignName = (campaignId?: string) => {
+    if (!campaignId) return 'Unknown';
+    const campaign = campaigns.find(c => c.id === campaignId);
     return campaign ? campaign.name : 'Unknown';
+  };
+  
+  const countByStatus = (status: string) => {
+    return leads.filter(lead => lead.status === status).length;
+  };
+
+  const handleConvertSuccess = () => {
+    setShowConvertDialog(false);
+    setSelectedLead(null);
+    queryClient.invalidateQueries({ queryKey: ['leads'] });
+    queryClient.invalidateQueries({ queryKey: ['contacts'] });
+    queryClient.invalidateQueries({ queryKey: ['deals'] });
   };
   
   return (
@@ -135,7 +245,7 @@ const LeadTable: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">New Leads</p>
-                <h3 className="text-2xl font-bold">{leads.filter(lead => lead.status === 'new').length}</h3>
+                <h3 className="text-2xl font-bold">{countByStatus('new')}</h3>
               </div>
             </div>
           </CardContent>
@@ -146,7 +256,7 @@ const LeadTable: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Qualified Leads</p>
-                <h3 className="text-2xl font-bold">{leads.filter(lead => lead.status === 'qualified').length}</h3>
+                <h3 className="text-2xl font-bold">{countByStatus('qualified')}</h3>
               </div>
             </div>
           </CardContent>
@@ -157,7 +267,7 @@ const LeadTable: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">In Pipeline</p>
-                <h3 className="text-2xl font-bold">{leads.filter(lead => lead.status === 'in_pipeline').length}</h3>
+                <h3 className="text-2xl font-bold">{countByStatus('in_pipeline')}</h3>
               </div>
             </div>
           </CardContent>
@@ -182,7 +292,7 @@ const LeadTable: React.FC = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">All campaigns</SelectItem>
-              {leadCampaigns.map((campaign) => (
+              {campaigns.map((campaign) => (
                 <SelectItem key={campaign.id} value={campaign.id}>
                   {campaign.name}
                 </SelectItem>
@@ -252,7 +362,7 @@ const LeadTable: React.FC = () => {
               <TableHead className="w-12">
                 <Checkbox 
                   onCheckedChange={handleSelectAllLeads}
-                  checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
+                  checked={selectedLeads.length === filteredLeads.filter(lead => lead.status !== 'in_pipeline').length && filteredLeads.filter(lead => lead.status !== 'in_pipeline').length > 0}
                   className="ml-2" 
                 />
               </TableHead>
@@ -284,13 +394,33 @@ const LeadTable: React.FC = () => {
                   <TableCell>{getStatusBadge(lead.status)}</TableCell>
                   <TableCell>{new Date(lead.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    {lead.status !== 'in_pipeline' && (
+                    {lead.status !== 'in_pipeline' ? (
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleSelectLead(lead.id)}
+                          title="Move to Pipeline"
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          title="Convert to Contact"
+                          onClick={() => handleOpenConvertDialog(lead)}
+                        >
+                          <UserPlus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
                       <Button 
                         variant="ghost" 
-                        size="icon" 
-                        onClick={() => handleSelectLead(lead.id)}
+                        size="icon"
+                        title="Convert to Contact"
+                        onClick={() => handleOpenConvertDialog(lead)}
                       >
-                        <ArrowRight className="h-4 w-4" />
+                        <UserPlus className="h-4 w-4" />
                       </Button>
                     )}
                   </TableCell>
@@ -306,6 +436,22 @@ const LeadTable: React.FC = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Convert Lead to Contact Dialog */}
+      {selectedLead && (
+        <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Convert Lead to Contact</DialogTitle>
+            </DialogHeader>
+            <LeadToContactForm 
+              lead={selectedLead}
+              onSuccess={handleConvertSuccess}
+              onCancel={() => setShowConvertDialog(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
