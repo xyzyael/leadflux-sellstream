@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -373,7 +372,7 @@ const LeadTable: React.FC = () => {
               <TableHead>Campaign</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="w-12"></TableHead>
+              <TableHead className="w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -395,33 +394,25 @@ const LeadTable: React.FC = () => {
                   <TableCell>{getStatusBadge(lead.status)}</TableCell>
                   <TableCell>{new Date(lead.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    {lead.status !== 'in_pipeline' ? (
-                      <div className="flex gap-1">
+                    <div className="flex gap-2">
+                      {lead.status !== 'in_pipeline' && (
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleSelectLead(lead.id)}
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log("Move to Pipeline button clicked for:", lead.name);
+                            handleSelectLead(lead.id);
+                          }}
                           title="Move to Pipeline"
                         >
                           <ArrowRight className="h-4 w-4" />
+                          <span className="sr-only">Move to Pipeline</span>
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          title="Convert to Contact"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            console.log("Convert to Contact button clicked for:", lead.name);
-                            handleOpenConvertDialog(lead);
-                          }}
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
+                      )}
                       <Button 
-                        variant="ghost" 
-                        size="icon"
+                        variant="outline" 
+                        size="sm"
                         title="Convert to Contact"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -429,9 +420,10 @@ const LeadTable: React.FC = () => {
                           handleOpenConvertDialog(lead);
                         }}
                       >
-                        <UserPlus className="h-4 w-4" />
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        <span className="hidden sm:inline">Convert</span>
                       </Button>
-                    )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -451,7 +443,9 @@ const LeadTable: React.FC = () => {
           open={showConvertDialog} 
           onOpenChange={(open) => {
             console.log("Dialog open state changed to:", open);
-            setShowConvertDialog(open);
+            if (!open) {
+              setShowConvertDialog(false);
+            }
           }}
         >
           <DialogContent className="sm:max-w-[500px]">
