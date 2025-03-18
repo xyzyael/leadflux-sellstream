@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Deal } from '@/data/sampleData';
 import DealCard from './DealCard';
@@ -73,24 +72,31 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
       const updatedDeal = { ...draggingDeal, stage: targetStage };
       
       try {
-        // Update the deal in the database
-        const { error } = await supabase
-          .from('deals')
-          .update({ stage: targetStage })
-          .eq('id', draggingDeal.id);
+        // Important: First, check if we're dealing with sample data that might not be in the database
+        const isDemoData = typeof draggingDeal.id === 'number' || !draggingDeal.id.includes('-');
+        
+        if (isDemoData) {
+          // For demo data, just show a success message without actually updating the database
+          toast({
+            title: "Deal moved (Demo Mode)",
+            description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
+          });
+        } else {
+          // This is real data with UUID, update the database
+          const { error } = await supabase
+            .from('deals')
+            .update({ stage: targetStage })
+            .eq('id', draggingDeal.id);
+            
+          if (error) {
+            throw error;
+          }
           
-        if (error) {
-          throw error;
+          toast({
+            title: "Deal moved",
+            description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
+          });
         }
-        
-        toast({
-          title: "Deal moved",
-          description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
-        });
-        
-        // In real application, we would refresh the deals list
-        // For now, we can update the local state to reflect the change
-        // This is handled by the parent component through react-query refetch
       } catch (error) {
         console.error('Error updating deal:', error);
         toast({
@@ -112,6 +118,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
   const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
       try {
+        // Check if we're dealing with sample data that might not be in the database
+        const isDemoData = typeof selectedDeal.id === 'number' || !selectedDeal.id.includes('-');
+        
+        if (isDemoData) {
+          // For demo data, just show a success message without actually updating the database
+          toast({
+            title: "Deal updated (Demo Mode)",
+            description: `${updatedValues.title} has been updated successfully.`,
+          });
+          setShowDealDetails(false);
+          return;
+        }
+        
         // Convert value to number if it's a string
         const value = typeof updatedValues.value === 'string' 
           ? parseFloat(updatedValues.value) 

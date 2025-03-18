@@ -63,10 +63,6 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   });
   
   const getStageColor = (stage: Deal['stage']) => {
-    if (stageColors[stage]) {
-      return stageColors[stage];
-    }
-    
     switch (stage) {
       case 'lead':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
@@ -110,6 +106,17 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
       try {
+        const isDemoData = typeof selectedDeal.id === 'number' || !selectedDeal.id.includes('-');
+        
+        if (isDemoData) {
+          toast({
+            title: "Deal updated (Demo Mode)",
+            description: `${updatedValues.title} has been updated successfully.`,
+          });
+          setShowDealDetails(false);
+          return;
+        }
+        
         const value = typeof updatedValues.value === 'string' 
           ? parseFloat(updatedValues.value) 
           : updatedValues.value;
@@ -152,18 +159,33 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
     }
   };
   
-  const handleStageChange = async (dealId: string, newStage: Deal['stage']) => {
+  const handleStageChange = async (deal: Deal, newStage: Deal['stage']) => {
     try {
+      const isDemoData = typeof deal.id === 'number' || !String(deal.id).includes('-');
+      
+      if (isDemoData) {
+        setStageColors(prev => ({
+          ...prev,
+          [String(deal.id)]: getStageColor(newStage)
+        }));
+        
+        toast({
+          title: "Stage updated (Demo Mode)",
+          description: `Deal stage changed to ${newStage}`,
+        });
+        return;
+      }
+      
       const { error } = await supabase
         .from('deals')
         .update({ stage: newStage })
-        .eq('id', dealId);
+        .eq('id', deal.id);
         
       if (error) throw error;
       
       setStageColors(prev => ({
         ...prev,
-        [dealId]: getStageColor(newStage)
+        [deal.id]: getStageColor(newStage)
       }));
       
       toast({
@@ -180,8 +202,18 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
     }
   };
   
-  const handleDeleteDeal = async (dealId: string) => {
+  const handleDeleteDeal = async (dealId: string | number) => {
     try {
+      const isDemoData = typeof dealId === 'number' || !String(dealId).includes('-');
+      
+      if (isDemoData) {
+        toast({
+          title: "Deal deleted (Demo Mode)",
+          description: "The deal has been removed successfully.",
+        });
+        return;
+      }
+      
       const { error } = await supabase
         .from('deals')
         .delete()
@@ -192,7 +224,6 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
       toast({
         title: "Deal deleted",
         description: "The deal has been removed successfully.",
-        variant: "destructive"
       });
     } catch (error) {
       console.error('Error deleting deal:', error);
@@ -293,9 +324,9 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Select
                       defaultValue={deal.stage}
-                      onValueChange={(value) => handleStageChange(deal.id, value as Deal['stage'])}
+                      onValueChange={(value) => handleStageChange(deal, value as Deal['stage'])}
                     >
-                      <SelectTrigger className={`w-[130px] ${getStageColor(deal.stage)}`}>
+                      <SelectTrigger className={`w-[130px] ${stageColors[String(deal.id)] || getStageColor(deal.stage)}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -366,6 +397,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
               onSubmit={handleUpdateDeal} 
               onCancel={() => setShowDealDetails(false)} 
               defaultValues={{
+                id: selectedDeal.id,
                 title: selectedDeal.title,
                 value: selectedDeal.value.toString(),
                 stage: selectedDeal.stage,
