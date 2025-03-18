@@ -6,16 +6,37 @@ import DealTable from '@/components/pipeline/DealTable';
 import DealForm from '@/components/pipeline/DealForm';
 import { getDealsByStage, getTotalDealValue, getOpenDealValue } from '@/data/sampleData';
 import { Button } from '@/components/ui/button';
-import { Plus, Kanban, Table, Filter } from 'lucide-react';
+import { Plus, Kanban, Table, Filter, SlidersHorizontal } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { Input } from '@/components/ui/input';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Slider } from "@/components/ui/slider";
 
 type ViewType = 'kanban' | 'table';
 
 const Pipeline: React.FC = () => {
   const [viewType, setViewType] = useState<ViewType>('kanban');
   const [showAddDeal, setShowAddDeal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [valueFilter, setValueFilter] = useState<[number, number]>([0, 100000]);
+  const [selectedStages, setSelectedStages] = useState<string[]>(['lead', 'contact', 'proposal', 'negotiation', 'closed']);
+  
   const { toast } = useToast();
   
   const dealsByStage = getDealsByStage();
@@ -38,6 +59,34 @@ const Pipeline: React.FC = () => {
     });
     setShowAddDeal(false);
   };
+  
+  const handleStageToggle = (stage: string) => {
+    if (selectedStages.includes(stage)) {
+      setSelectedStages(selectedStages.filter(s => s !== stage));
+    } else {
+      setSelectedStages([...selectedStages, stage]);
+    }
+  };
+  
+  const filteredDealsByStage = Object.entries(dealsByStage).reduce((acc, [stage, deals]) => {
+    if (selectedStages.includes(stage)) {
+      const filteredDeals = deals.filter(deal => {
+        const matchesSearch = !searchQuery || 
+          deal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (deal.description && deal.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (deal.contact && deal.contact.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        
+        const matchesValue = deal.value >= valueFilter[0] && deal.value <= valueFilter[1];
+        
+        return matchesSearch && matchesValue;
+      });
+      
+      if (filteredDeals.length > 0) {
+        acc[stage as keyof typeof acc] = filteredDeals;
+      }
+    }
+    return acc;
+  }, {} as Record<string, typeof dealsByStage[keyof typeof dealsByStage]>);
   
   return (
     <MainLayout>
@@ -72,11 +121,97 @@ const Pipeline: React.FC = () => {
               </Button>
             </div>
             
+            <Sheet open={showFilters} onOpenChange={setShowFilters}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Filter Deals</SheetTitle>
+                  <SheetDescription>
+                    Customize which deals you want to see in your pipeline
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="py-6 space-y-6">
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Deal Stages</h3>
+                    <div className="space-y-1">
+                      {Object.keys(dealsByStage).map(stage => (
+                        <div key={stage} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`stage-${stage}`}
+                            checked={selectedStages.includes(stage)}
+                            onChange={() => handleStageToggle(stage)}
+                            className="rounded text-primary"
+                          />
+                          <label htmlFor={`stage-${stage}`} className="text-sm">
+                            {stage === 'lead' && 'Leads'}
+                            {stage === 'contact' && 'Contacted'}
+                            {stage === 'proposal' && 'Proposal'}
+                            {stage === 'negotiation' && 'Negotiation'}
+                            {stage === 'closed' && 'Closed Won'}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Deal Value Range</h3>
+                      <Slider
+                        defaultValue={valueFilter}
+                        min={0}
+                        max={100000}
+                        step={5000}
+                        onValueChange={(value) => setValueFilter(value as [number, number])}
+                        className="my-6"
+                      />
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>{formatCurrency(valueFilter[0])}</span>
+                        <span>{formatCurrency(valueFilter[1])}</span>
+                      </div>
+                    </div>
+                  </div>
+                
+                  <Button 
+                    onClick={() => setShowFilters(false)}
+                    className="w-full"
+                  >
+                    Apply Filters
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            
+            <div className="relative w-full max-w-xs hidden md:block">
+              <Input
+                type="text"
+                placeholder="Search deals..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            
             <Button onClick={() => setShowAddDeal(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Deal
             </Button>
           </div>
+        </div>
+        
+        <div className="md:hidden w-full mb-2">
+          <Input
+            type="text"
+            placeholder="Search deals..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full"
+          />
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -106,8 +241,8 @@ const Pipeline: React.FC = () => {
           </Card>
         </div>
         
-        {viewType === 'kanban' && <KanbanBoard dealsByStage={dealsByStage} />}
-        {viewType === 'table' && <DealTable dealsByStage={dealsByStage} />}
+        {viewType === 'kanban' && <KanbanBoard dealsByStage={filteredDealsByStage} />}
+        {viewType === 'table' && <DealTable dealsByStage={filteredDealsByStage} />}
       </div>
       
       <Dialog open={showAddDeal} onOpenChange={setShowAddDeal}>
