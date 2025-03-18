@@ -14,7 +14,8 @@ import {
   Building, 
   Building2, 
   Trash2,
-  PlusCircle
+  PlusCircle,
+  Check
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -24,6 +25,8 @@ import {
   DialogFooter 
 } from '@/components/ui/dialog';
 import { leadCampaigns } from '@/data/sampleData';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface LeadCampaignsProps {
   setActiveTab: (tab: string) => void;
@@ -35,6 +38,8 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
   const [showAddCampaign, setShowAddCampaign] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
   const [newCampaignType, setNewCampaignType] = useState('');
+  const [selectedIcon, setSelectedIcon] = useState<string>('package');
+  const [campaigns, setCampaigns] = useState(leadCampaigns);
   
   const campaignIcons: Record<string, React.ReactNode> = {
     'logistics': <Package className="h-10 w-10 text-blue-500" />,
@@ -43,7 +48,14 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
     'technology': <Building2 className="h-10 w-10 text-purple-500" />
   };
   
-  const filteredCampaigns = leadCampaigns.filter(campaign => 
+  const iconOptions = [
+    { id: 'package', icon: <Package className="h-6 w-6 text-blue-500" />, label: 'Package' },
+    { id: 'briefcase', icon: <Briefcase className="h-6 w-6 text-green-500" />, label: 'Briefcase' },
+    { id: 'building', icon: <Building className="h-6 w-6 text-red-500" />, label: 'Building' },
+    { id: 'building2', icon: <Building2 className="h-6 w-6 text-purple-500" />, label: 'Building 2' },
+  ];
+  
+  const filteredCampaigns = campaigns.filter(campaign => 
     campaign.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     campaign.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -58,19 +70,68 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
       return;
     }
     
-    // In a real app, we would add the campaign to the database here
+    // Create a new campaign with an icon
+    const newCampaign = {
+      id: `campaign-${Date.now()}`,
+      name: newCampaignName,
+      type: newCampaignType,
+      totalLeads: 0,
+      processedLeads: 0,
+      movedToPipeline: 0,
+      createdAt: new Date().toISOString(),
+      iconType: selectedIcon
+    };
+    
+    setCampaigns([...campaigns, newCampaign]);
+    
     toast({
       title: "Campaign created",
       description: `${newCampaignName} campaign has been created successfully.`
     });
+    
+    // Reset form
     setNewCampaignName('');
     setNewCampaignType('');
+    setSelectedIcon('package');
     setShowAddCampaign(false);
+  };
+  
+  const handleDeleteCampaign = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Filter out the campaign with the matching id
+    const updatedCampaigns = campaigns.filter(campaign => campaign.id !== id);
+    setCampaigns(updatedCampaigns);
+    
+    toast({
+      title: "Campaign deleted",
+      description: "The campaign has been deleted successfully.",
+      variant: "destructive"
+    });
   };
   
   const handleImportLeads = (campaignId: string) => {
     // Switch to the import tab and pre-select the campaign
     setActiveTab('import');
+  };
+  
+  const getCampaignIcon = (campaign: any) => {
+    if (campaign.iconType) {
+      switch (campaign.iconType) {
+        case 'package':
+          return <Package className="h-10 w-10 text-blue-500" />;
+        case 'briefcase':
+          return <Briefcase className="h-10 w-10 text-green-500" />;
+        case 'building':
+          return <Building className="h-10 w-10 text-red-500" />;
+        case 'building2':
+          return <Building2 className="h-10 w-10 text-purple-500" />;
+        default:
+          return <ListPlus className="h-10 w-10 text-gray-500" />;
+      }
+    }
+    
+    return campaignIcons[campaign.type.toLowerCase()] || <ListPlus className="h-10 w-10 text-gray-500" />;
   };
   
   return (
@@ -97,7 +158,7 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-4">
-                  {campaignIcons[campaign.type.toLowerCase()] || <ListPlus className="h-10 w-10 text-gray-500" />}
+                  {getCampaignIcon(campaign)}
                   <div>
                     <CardTitle className="text-lg">{campaign.name}</CardTitle>
                     <p className="text-sm text-muted-foreground capitalize">{campaign.type}</p>
@@ -144,6 +205,7 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
                 variant="ghost" 
                 size="sm"
                 className="text-destructive hover:text-destructive"
+                onClick={(e) => handleDeleteCampaign(campaign.id, e)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -153,7 +215,7 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
       </div>
 
       <Dialog open={showAddCampaign} onOpenChange={setShowAddCampaign}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Create New Lead Campaign</DialogTitle>
           </DialogHeader>
@@ -179,6 +241,35 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
                 onChange={(e) => setNewCampaignType(e.target.value)}
                 placeholder="e.g. Logistics, Fintech, Healthcare"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Select Icon
+              </label>
+              <RadioGroup 
+                className="flex flex-wrap gap-4"
+                value={selectedIcon}
+                onValueChange={setSelectedIcon}
+              >
+                {iconOptions.map((option) => (
+                  <div key={option.id} className="flex items-center space-x-2">
+                    <div className={`w-16 h-16 rounded-md border flex items-center justify-center relative ${selectedIcon === option.id ? 'bg-primary/10 border-primary' : 'border-gray-200'}`}>
+                      <RadioGroupItem 
+                        value={option.id} 
+                        id={option.id} 
+                        className="absolute opacity-0"
+                      />
+                      {option.icon}
+                      {selectedIcon === option.id && (
+                        <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center">
+                          <Check className="h-3 w-3" />
+                        </div>
+                      )}
+                    </div>
+                    <Label htmlFor={option.id}>{option.label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
             </div>
           </div>
           <DialogFooter>

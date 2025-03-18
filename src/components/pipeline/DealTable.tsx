@@ -16,15 +16,21 @@ import {
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import DealForm from './DealForm';
+import { useToast } from '@/components/ui/use-toast';
 
 interface DealTableProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
 }
 
 const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Deal; direction: 'asc' | 'desc' } | null>(null);
+  const [showDealDetails, setShowDealDetails] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   
   // Flatten deals array
   const allDeals = Object.values(dealsByStage).flat();
@@ -89,6 +95,39 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
     }
     
     setSortConfig({ key, direction });
+  };
+  
+  const handleRowClick = (deal: Deal) => {
+    setSelectedDeal(deal);
+    setShowDealDetails(true);
+  };
+  
+  const handleUpdateDeal = (updatedValues: any) => {
+    if (selectedDeal) {
+      // In a real app, we would update the deal in the database here
+      toast({
+        title: "Deal updated",
+        description: `${updatedValues.title} has been updated successfully.`,
+      });
+      setShowDealDetails(false);
+    }
+  };
+  
+  const handleStageChange = (dealId: string, newStage: Deal['stage']) => {
+    // In a real app, we would update the deal in the database here
+    toast({
+      title: "Stage updated",
+      description: `Deal stage changed to ${newStage}`,
+    });
+  };
+  
+  const handleDeleteDeal = (dealId: string) => {
+    // In a real app, we would delete the deal from the database here
+    toast({
+      title: "Deal deleted",
+      description: "The deal has been removed successfully.",
+      variant: "destructive"
+    });
   };
   
   return (
@@ -164,7 +203,11 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
               </TableRow>
             ) : (
               sortedDeals.map((deal) => (
-                <TableRow key={deal.id}>
+                <TableRow 
+                  key={deal.id}
+                  className="cursor-pointer"
+                  onClick={() => handleRowClick(deal)}
+                >
                   <TableCell>
                     <div>
                       <div className="font-medium">{deal.title}</div>
@@ -173,14 +216,22 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getStageColor(deal.stage)}>
-                      {deal.stage === 'lead' && 'Lead'}
-                      {deal.stage === 'contact' && 'Contact'}
-                      {deal.stage === 'proposal' && 'Proposal'}
-                      {deal.stage === 'negotiation' && 'Negotiation'}
-                      {deal.stage === 'closed' && 'Closed'}
-                    </Badge>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      defaultValue={deal.stage}
+                      onValueChange={(value) => handleStageChange(deal.id, value as Deal['stage'])}
+                    >
+                      <SelectTrigger className={`w-[130px] ${getStageColor(deal.stage)}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lead">Lead</SelectItem>
+                        <SelectItem value="contact">Contact</SelectItem>
+                        <SelectItem value="proposal">Proposal</SelectItem>
+                        <SelectItem value="negotiation">Negotiation</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>{formatCurrency(deal.value)}</TableCell>
                   <TableCell>
@@ -196,7 +247,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                     )}
                   </TableCell>
                   <TableCell>{format(new Date(deal.createdAt), 'MMM d, yyyy')}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -206,12 +257,18 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRowClick(deal)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteDeal(deal.id);
+                          }}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           <span>Delete</span>
                         </DropdownMenuItem>
@@ -224,6 +281,28 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
           </TableBody>
         </Table>
       </div>
+      
+      {showDealDetails && selectedDeal && (
+        <Dialog open={showDealDetails} onOpenChange={setShowDealDetails}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Deal Details</DialogTitle>
+            </DialogHeader>
+            <DealForm 
+              onSubmit={handleUpdateDeal} 
+              onCancel={() => setShowDealDetails(false)} 
+              defaultValues={{
+                title: selectedDeal.title,
+                value: selectedDeal.value.toString(),
+                stage: selectedDeal.stage,
+                probability: selectedDeal.probability?.toString() || '',
+                contactId: selectedDeal.contactId,
+                description: selectedDeal.description || ''
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
