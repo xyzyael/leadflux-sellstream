@@ -1,70 +1,87 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Deal } from '@/data/sampleData';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { MoreHorizontal, Search, Edit, ArrowUpDown, Trash2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import DealForm from './DealForm';
-import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { ArrowUpDown, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface DealTableProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
 }
 
 const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [stageFilter, setStageFilter] = useState<string>('all');
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Deal; direction: 'asc' | 'desc' } | null>(null);
-  const [showDealDetails, setShowDealDetails] = useState(false);
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const navigate = useNavigate();
+  const [sortBy, setSortBy] = React.useState<'title' | 'value' | 'stage' | 'created_at'>('created_at');
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc');
   
   // Flatten deals array
-  const allDeals = Object.values(dealsByStage).flat();
-  
-  // Filter deals
-  const filteredDeals = allDeals.filter(deal => {
-    const matchesSearch = deal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (deal.description && deal.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (deal.contact && deal.contact.name.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesStage = stageFilter === 'all' || deal.stage === stageFilter;
-    
-    return matchesSearch && matchesStage;
-  });
+  const allDeals = React.useMemo(() => {
+    return Object.values(dealsByStage).flat();
+  }, [dealsByStage]);
   
   // Sort deals
-  const sortedDeals = [...filteredDeals].sort((a, b) => {
-    if (!sortConfig) return 0;
-    
-    const { key, direction } = sortConfig;
-    
-    if (a[key] < b[key]) {
-      return direction === 'asc' ? -1 : 1;
-    }
-    if (a[key] > b[key]) {
-      return direction === 'asc' ? 1 : -1;
-    }
-    return 0;
-  });
+  const sortedDeals = React.useMemo(() => {
+    return [...allDeals].sort((a, b) => {
+      if (sortBy === 'value') {
+        return sortOrder === 'asc' ? a.value - b.value : b.value - a.value;
+      } else if (sortBy === 'title') {
+        return sortOrder === 'asc' 
+          ? a.title.localeCompare(b.title) 
+          : b.title.localeCompare(a.title);
+      } else if (sortBy === 'stage') {
+        return sortOrder === 'asc' 
+          ? a.stage.localeCompare(b.stage) 
+          : b.stage.localeCompare(a.stage);
+      } else {
+        // Default sort by created_at
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+    });
+  }, [allDeals, sortBy, sortOrder]);
   
-  const getStageColor = (stage: Deal['stage']) => {
+  const handleSort = (column: 'title' | 'value' | 'stage' | 'created_at') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+  };
+  
+  const handleViewDeal = (deal: Deal) => {
+    console.log("Navigating to deal detail:", deal.id);
+    navigate(`/pipeline/deal/${deal.id}`);
+  };
+  
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+  
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+  
+  const getStageBadgeColor = (stage: string) => {
     switch (stage) {
       case 'lead':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
@@ -80,333 +97,116 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
         return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     }
   };
-  
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-  
-  const handleSort = (key: keyof Deal) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    
-    setSortConfig({ key, direction });
-  };
-  
-  const handleRowClick = (deal: Deal) => {
-    console.log("Deal row clicked:", deal);
-    setSelectedDeal(deal);
-    setShowDealDetails(true);
-  };
-  
-  const handleUpdateDeal = async (updatedValues: any) => {
-    if (selectedDeal) {
-      try {
-        console.log("Updating deal with values:", updatedValues);
-        
-        const value = typeof updatedValues.value === 'string' 
-          ? parseFloat(updatedValues.value) 
-          : updatedValues.value;
-        
-        const probability = updatedValues.probability 
-          ? (typeof updatedValues.probability === 'string' 
-              ? parseInt(updatedValues.probability, 10) 
-              : updatedValues.probability)
-          : null;
-        
-        const dealData = {
-          title: updatedValues.title,
-          value,
-          stage: updatedValues.stage,
-          probability,
-          contact_id: updatedValues.contactId || null,
-          description: updatedValues.description || null
-        };
-        
-        const { error } = await supabase
-          .from('deals')
-          .update({
-            title: updatedValues.title,
-            value: parseFloat(updatedValues.value),
-            stage: updatedValues.stage,
-            probability: updatedValues.probability ? parseInt(updatedValues.probability, 10) : null,
-            contact_id: updatedValues.contactId || null,
-            description: updatedValues.description || null
-          })
-          .eq('id', selectedDeal.id);
-          
-        if (error) throw error;
-        
-        queryClient.invalidateQueries({ queryKey: ['deals'] });
-        
-        toast({
-          title: "Deal updated",
-          description: `${updatedValues.title} has been updated successfully.`,
-        });
-        setShowDealDetails(false);
-      } catch (error) {
-        console.error('Error updating deal:', error);
-        toast({
-          title: "Error",
-          description: "Could not update deal. Please try again.",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-  
-  const handleStageChange = async (deal: Deal, newStage: Deal['stage']) => {
-    try {
-      const { error } = await supabase
-        .from('deals')
-        .update({ stage: newStage })
-        .eq('id', deal.id);
-        
-      if (error) throw error;
-      
-      // Refresh deals data
-      queryClient.invalidateQueries({ queryKey: ['deals'] });
-      
-      toast({
-        title: "Stage updated",
-        description: `Deal stage changed to ${newStage}`,
-      });
-    } catch (error) {
-      console.error('Error updating deal stage:', error);
-      toast({
-        title: "Error",
-        description: "Could not update deal stage. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-  
-  const handleDeleteDeal = async (dealId: string | number) => {
-    try {
-      const { error } = await supabase
-        .from('deals')
-        .delete()
-        .eq('id', dealId.toString()); // Convert dealId to string to ensure compatibility
-        
-      if (error) throw error;
-      
-      // Refresh deals data
-      queryClient.invalidateQueries({ queryKey: ['deals'] });
-      
-      toast({
-        title: "Deal deleted",
-        description: "The deal has been removed successfully.",
-      });
-    } catch (error) {
-      console.error('Error deleting deal:', error);
-      toast({
-        title: "Error",
-        description: "Could not delete deal. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-  
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 items-center">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search deals..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <div>
-          <Select value={stageFilter} onValueChange={setStageFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Stage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              <SelectItem value="lead">Lead</SelectItem>
-              <SelectItem value="contact">Contact</SelectItem>
-              <SelectItem value="proposal">Proposal</SelectItem>
-              <SelectItem value="negotiation">Negotiation</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[300px]">
-                <Button variant="ghost" size="sm" onClick={() => handleSort('title')}>
-                  Deal
-                  {sortConfig?.key === 'title' && (
-                    <ArrowUpDown className={`ml-2 h-4 w-4 ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="font-medium"
+                onClick={() => handleSort('title')}
+              >
+                Deal Title
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </TableHead>
+            <TableHead>Contact / Company</TableHead>
+            <TableHead>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="font-medium"
+                onClick={() => handleSort('value')}
+              >
+                Value
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </TableHead>
+            <TableHead>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="font-medium"
+                onClick={() => handleSort('stage')}
+              >
+                Stage
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </TableHead>
+            <TableHead>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="font-medium"
+                onClick={() => handleSort('created_at')}
+              >
+                Created
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sortedDeals.length > 0 ? (
+            sortedDeals.map((deal) => (
+              <TableRow key={deal.id} className="cursor-pointer hover:bg-muted/50">
+                <TableCell 
+                  className="font-medium"
+                  onClick={() => handleViewDeal(deal)}
+                >
+                  {deal.title}
+                </TableCell>
+                <TableCell onClick={() => handleViewDeal(deal)}>
+                  <div>
+                    {deal.contact?.name}
+                    {deal.contact?.company && (
+                      <div className="text-sm text-muted-foreground">
+                        {deal.contact.company}
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell onClick={() => handleViewDeal(deal)}>
+                  {formatCurrency(deal.value)}
+                  {deal.probability && (
+                    <div className="text-xs text-muted-foreground">
+                      {deal.probability}% probability
+                    </div>
                   )}
-                </Button>
-              </TableHead>
-              <TableHead>Stage</TableHead>
-              <TableHead>
-                <Button variant="ghost" size="sm" onClick={() => handleSort('value')}>
-                  Value
-                  {sortConfig?.key === 'value' && (
-                    <ArrowUpDown className={`ml-2 h-4 w-4 ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-                  )}
-                </Button>
-              </TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>
-                <Button variant="ghost" size="sm" onClick={() => handleSort('createdAt')}>
-                  Created
-                  {sortConfig?.key === 'createdAt' && (
-                    <ArrowUpDown className={`ml-2 h-4 w-4 ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />
-                  )}
-                </Button>
-              </TableHead>
-              <TableHead className="w-[80px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedDeals.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No deals found
+                </TableCell>
+                <TableCell onClick={() => handleViewDeal(deal)}>
+                  <Badge className={getStageBadgeColor(deal.stage)}>
+                    {deal.stage.charAt(0).toUpperCase() + deal.stage.slice(1)}
+                  </Badge>
+                </TableCell>
+                <TableCell onClick={() => handleViewDeal(deal)}>
+                  {formatDate(deal.createdAt)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleViewDeal(deal)}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
-            ) : (
-              sortedDeals.map((deal) => (
-                <TableRow 
-                  key={deal.id}
-                  className="cursor-pointer"
-                  onClick={(e) => {
-                    // Don't trigger if the dropdown is clicked
-                    if ((e.target as HTMLElement).closest('[data-dropdown-trigger]')) {
-                      return;
-                    }
-                    console.log("Deal row clicked:", deal.title);
-                    handleRowClick(deal);
-                  }}
-                >
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{deal.title}</div>
-                      {deal.description && (
-                        <div className="text-sm text-muted-foreground line-clamp-1">{deal.description}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      defaultValue={deal.stage}
-                      onValueChange={(value) => handleStageChange(deal, value as Deal['stage'])}
-                    >
-                      <SelectTrigger className={`w-[130px] ${getStageColor(deal.stage)}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="lead">Lead</SelectItem>
-                        <SelectItem value="contact">Contact</SelectItem>
-                        <SelectItem value="proposal">Proposal</SelectItem>
-                        <SelectItem value="negotiation">Negotiation</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>{formatCurrency(deal.value)}</TableCell>
-                  <TableCell>
-                    {deal.contact ? (
-                      <div>
-                        <div>{deal.contact.name}</div>
-                        {deal.contact.company && (
-                          <div className="text-sm text-muted-foreground">{deal.contact.company}</div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">No contact</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{format(new Date(deal.createdAt), 'MMM d, yyyy')}</TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" data-dropdown-trigger>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          handleRowClick(deal);
-                        }}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Edit</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteDeal(deal.id);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      
-      {selectedDeal && (
-        <Dialog 
-          open={showDealDetails} 
-          onOpenChange={(open) => {
-            console.log("Deal details dialog open state changed to:", open);
-            setShowDealDetails(open);
-          }}
-        >
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Deal Details</DialogTitle>
-            </DialogHeader>
-            <DealForm 
-              onSubmit={handleUpdateDeal} 
-              onCancel={() => {
-                console.log("Cancel button clicked in DealForm");
-                setShowDealDetails(false);
-              }}
-              defaultValues={{
-                id: selectedDeal.id,
-                title: selectedDeal.title,
-                value: selectedDeal.value.toString(),
-                stage: selectedDeal.stage,
-                probability: selectedDeal.probability?.toString() || '',
-                contactId: selectedDeal.contactId || '',
-                description: selectedDeal.description || ''
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                No deals found matching your filters
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 };

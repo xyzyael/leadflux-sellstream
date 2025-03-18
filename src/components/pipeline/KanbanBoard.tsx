@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Deal } from '@/data/sampleData';
 import DealCard from './DealCard';
@@ -10,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import DealForm from './DealForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 interface KanbanBoardProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
@@ -17,11 +17,12 @@ interface KanbanBoardProps {
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [draggingDeal, setDraggingDeal] = useState<Deal | null>(null);
   const [collapseStages, setCollapseStages] = useState<Record<string, boolean>>({});
-  const [showDealDetails, setShowDealDetails] = useState(false);
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [showDealForm, setShowDealForm] = useState(false);
+  const [selectedStage, setSelectedStage] = useState<Deal['stage'] | null>(null);
   
   const stageInfo = {
     lead: {
@@ -106,68 +107,49 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
   
   const handleDealClick = (deal: Deal) => {
     console.log("Deal clicked:", deal);
-    setSelectedDeal(deal);
-    setShowDealDetails(true);
+    navigate(`/pipeline/deal/${deal.id}`);
   };
   
-  const handleUpdateDeal = async (updatedValues: any) => {
-    if (selectedDeal) {
-      try {
-        console.log("Updating deal with values:", updatedValues);
-        
-        const value = typeof updatedValues.value === 'string' 
-          ? parseFloat(updatedValues.value) 
-          : updatedValues.value;
-        
-        const probability = updatedValues.probability 
-          ? (typeof updatedValues.probability === 'string' 
-              ? parseInt(updatedValues.probability, 10) 
-              : updatedValues.probability)
-          : null;
-        
+  const handleAddDeal = (stage: Deal['stage']) => {
+    console.log("Adding deal to stage:", stage);
+    setSelectedStage(stage);
+    setShowDealForm(true);
+  };
+  
+  const handleCreateDeal = async (values: any) => {
+    try {
+      console.log("Creating new deal with values:", values);
+      
+      if (selectedStage) {
         const dealData = {
-          title: updatedValues.title,
-          value,
-          stage: updatedValues.stage,
-          probability,
-          contact_id: updatedValues.contactId || null,
-          description: updatedValues.description || null
+          ...values,
+          stage: selectedStage,
+          value: parseFloat(values.value),
+          probability: values.probability ? parseInt(values.probability, 10) : null,
         };
-        
-        console.log("Sending update to supabase for deal ID:", selectedDeal.id, "with data:", dealData);
         
         const { error } = await supabase
           .from('deals')
-          .update({
-            title: updatedValues.title,
-            value: parseFloat(updatedValues.value),
-            stage: updatedValues.stage,
-            probability: updatedValues.probability ? parseInt(updatedValues.probability, 10) : null,
-            contact_id: updatedValues.contactId || null,
-            description: updatedValues.description || null
-          })
-          .eq('id', selectedDeal.id);
+          .insert(dealData);
           
-        if (error) {
-          console.error("Supabase update error:", error);
-          throw error;
-        }
+        if (error) throw error;
         
         queryClient.invalidateQueries({ queryKey: ['deals'] });
         
         toast({
-          title: "Deal updated",
-          description: `${updatedValues.title} has been updated successfully.`,
-        });
-        setShowDealDetails(false);
-      } catch (error) {
-        console.error('Error updating deal:', error);
-        toast({
-          title: "Error",
-          description: "Could not update deal. Please try again.",
-          variant: "destructive"
+          title: "Deal created",
+          description: `${values.title} has been added to ${selectedStage} stage.`,
         });
       }
+      
+      setShowDealForm(false);
+    } catch (error) {
+      console.error('Error creating deal:', error);
+      toast({
+        title: "Error",
+        description: "Could not create deal. Please try again.",
+        variant: "destructive"
+      });
     }
   };
   
@@ -215,7 +197,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
                       {deals.length} deals · {formatCurrency(stageValue)}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddDeal(stage as Deal['stage']);
+                    }}
+                  >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -229,15 +219,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
                           draggable
                           onDragStart={() => handleDragStart(deal)}
                           onDragEnd={() => setDraggingDeal(null)}
-                          onClick={(e) => {
-                            e.stopPropagation(); 
-                            console.log("Deal card clicked:", deal.title);
-                            handleDealClick(deal);
-                          }}
+                          onClick={() => handleDealClick(deal)}
                           className={cn(
                             draggingDeal?.id === deal.id ? "opacity-50" : "opacity-100",
-                            "transition-opacity duration-200",
-                            "cursor-pointer"
+                            "transition-opacity duration-200 cursor-pointer"
                           )}
                         >
                           <DealCard 
@@ -262,40 +247,26 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
         })}
       </div>
       
-      {selectedDeal && (
-        <Dialog 
-          open={showDealDetails} 
-          onOpenChange={(open) => {
-            console.log("Deal details dialog open state changed to:", open);
-            setShowDealDetails(open);
-            if (!open) {
-              setSelectedDeal(null);
-            }
-          }}
-        >
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Deal Details</DialogTitle>
-            </DialogHeader>
-            <DealForm 
-              onSubmit={handleUpdateDeal} 
-              onCancel={() => {
-                console.log("Cancel button clicked in DealForm");
-                setShowDealDetails(false);
-              }}
-              defaultValues={{
-                id: selectedDeal.id,
-                title: selectedDeal.title,
-                value: selectedDeal.value.toString(),
-                stage: selectedDeal.stage,
-                probability: selectedDeal.probability?.toString() || '',
-                contactId: selectedDeal.contactId || '',
-                description: selectedDeal.description || ''
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog 
+        open={showDealForm} 
+        onOpenChange={(open) => {
+          console.log("Deal form dialog open state changed to:", open);
+          setShowDealForm(open);
+          if (!open) {
+            setSelectedStage(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Deal</DialogTitle>
+          </DialogHeader>
+          <DealForm 
+            onSubmit={handleCreateDeal} 
+            onCancel={() => setShowDealForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
