@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Deal } from '@/data/sampleData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,6 +18,7 @@ import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import DealForm from './DealForm';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DealTableProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
@@ -31,6 +31,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   const [sortConfig, setSortConfig] = useState<{ key: keyof Deal; direction: 'asc' | 'desc' } | null>(null);
   const [showDealDetails, setShowDealDetails] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [stageColors, setStageColors] = useState<Record<string, string>>({});
   
   // Flatten deals array
   const allDeals = Object.values(dealsByStage).flat();
@@ -62,6 +63,10 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   });
   
   const getStageColor = (stage: Deal['stage']) => {
+    if (stageColors[stage]) {
+      return stageColors[stage];
+    }
+    
     switch (stage) {
       case 'lead':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
@@ -102,32 +107,101 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
     setShowDealDetails(true);
   };
   
-  const handleUpdateDeal = (updatedValues: any) => {
+  const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
-      // In a real app, we would update the deal in the database here
-      toast({
-        title: "Deal updated",
-        description: `${updatedValues.title} has been updated successfully.`,
-      });
-      setShowDealDetails(false);
+      try {
+        const value = typeof updatedValues.value === 'string' 
+          ? parseFloat(updatedValues.value) 
+          : updatedValues.value;
+        
+        const probability = updatedValues.probability 
+          ? (typeof updatedValues.probability === 'string' 
+              ? parseInt(updatedValues.probability, 10) 
+              : updatedValues.probability)
+          : null;
+        
+        const dealData = {
+          title: updatedValues.title,
+          value,
+          stage: updatedValues.stage,
+          probability,
+          contact_id: updatedValues.contactId || null,
+          description: updatedValues.description || null
+        };
+        
+        const { error } = await supabase
+          .from('deals')
+          .update(dealData)
+          .eq('id', selectedDeal.id);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Deal updated",
+          description: `${updatedValues.title} has been updated successfully.`,
+        });
+        setShowDealDetails(false);
+      } catch (error) {
+        console.error('Error updating deal:', error);
+        toast({
+          title: "Error",
+          description: "Could not update deal. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
   
-  const handleStageChange = (dealId: string, newStage: Deal['stage']) => {
-    // In a real app, we would update the deal in the database here
-    toast({
-      title: "Stage updated",
-      description: `Deal stage changed to ${newStage}`,
-    });
+  const handleStageChange = async (dealId: string, newStage: Deal['stage']) => {
+    try {
+      const { error } = await supabase
+        .from('deals')
+        .update({ stage: newStage })
+        .eq('id', dealId);
+        
+      if (error) throw error;
+      
+      setStageColors(prev => ({
+        ...prev,
+        [dealId]: getStageColor(newStage)
+      }));
+      
+      toast({
+        title: "Stage updated",
+        description: `Deal stage changed to ${newStage}`,
+      });
+    } catch (error) {
+      console.error('Error updating deal stage:', error);
+      toast({
+        title: "Error",
+        description: "Could not update deal stage. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
-  const handleDeleteDeal = (dealId: string) => {
-    // In a real app, we would delete the deal from the database here
-    toast({
-      title: "Deal deleted",
-      description: "The deal has been removed successfully.",
-      variant: "destructive"
-    });
+  const handleDeleteDeal = async (dealId: string) => {
+    try {
+      const { error } = await supabase
+        .from('deals')
+        .delete()
+        .eq('id', dealId);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Deal deleted",
+        description: "The deal has been removed successfully.",
+        variant: "destructive"
+      });
+    } catch (error) {
+      console.error('Error deleting deal:', error);
+      toast({
+        title: "Error",
+        description: "Could not delete deal. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   return (

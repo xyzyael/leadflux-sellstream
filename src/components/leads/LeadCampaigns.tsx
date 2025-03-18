@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,8 @@ import {
   Building2, 
   Trash2,
   PlusCircle,
-  Check
+  Check,
+  Eye
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -27,6 +27,7 @@ import {
 import { leadCampaigns } from '@/data/sampleData';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import CampaignDetailsTable from './CampaignDetailsTable';
 
 interface LeadCampaignsProps {
   setActiveTab: (tab: string) => void;
@@ -40,6 +41,8 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
   const [newCampaignType, setNewCampaignType] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<string>('package');
   const [campaigns, setCampaigns] = useState(leadCampaigns);
+  const [viewingCampaign, setViewingCampaign] = useState<string | null>(null);
+  const [viewingCampaignName, setViewingCampaignName] = useState<string>('');
   
   const campaignIcons: Record<string, React.ReactNode> = {
     'logistics': <Package className="h-10 w-10 text-blue-500" />,
@@ -70,7 +73,6 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
       return;
     }
     
-    // Create a new campaign with an icon
     const newCampaign = {
       id: `campaign-${Date.now()}`,
       name: newCampaignName,
@@ -89,7 +91,6 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
       description: `${newCampaignName} campaign has been created successfully.`
     });
     
-    // Reset form
     setNewCampaignName('');
     setNewCampaignType('');
     setSelectedIcon('package');
@@ -99,7 +100,6 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
   const handleDeleteCampaign = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Filter out the campaign with the matching id
     const updatedCampaigns = campaigns.filter(campaign => campaign.id !== id);
     setCampaigns(updatedCampaigns);
     
@@ -111,8 +111,12 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
   };
   
   const handleImportLeads = (campaignId: string) => {
-    // Switch to the import tab and pre-select the campaign
     setActiveTab('import');
+  };
+  
+  const handleViewCampaign = (campaign: any) => {
+    setViewingCampaign(campaign.id);
+    setViewingCampaignName(campaign.name);
   };
   
   const getCampaignIcon = (campaign: any) => {
@@ -133,6 +137,16 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
     
     return campaignIcons[campaign.type.toLowerCase()] || <ListPlus className="h-10 w-10 text-gray-500" />;
   };
+  
+  if (viewingCampaign) {
+    return (
+      <CampaignDetailsTable 
+        campaignId={viewingCampaign}
+        campaignName={viewingCampaignName}
+        onBack={() => setViewingCampaign(null)}
+      />
+    );
+  }
   
   return (
     <div className="space-y-6">
@@ -193,14 +207,24 @@ const LeadCampaigns: React.FC<LeadCampaignsProps> = ({ setActiveTab }) => {
               </div>
             </CardContent>
             <CardFooter className="flex justify-between pt-4 border-t">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => handleImportLeads(campaign.id)}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Import Leads
-              </Button>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleImportLeads(campaign.id)}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Import
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleViewCampaign(campaign)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View
+                </Button>
+              </div>
               <Button 
                 variant="ghost" 
                 size="sm"

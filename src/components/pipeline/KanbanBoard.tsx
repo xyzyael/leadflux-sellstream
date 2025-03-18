@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import DealForm from './DealForm';
+import { supabase } from '@/integrations/supabase/client';
 
 interface KanbanBoardProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
@@ -64,24 +65,40 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
     e.preventDefault();
   };
   
-  const handleDrop = (e: React.DragEvent, targetStage: Deal['stage']) => {
+  const handleDrop = async (e: React.DragEvent, targetStage: Deal['stage']) => {
     e.preventDefault();
     
     if (draggingDeal && draggingDeal.stage !== targetStage) {
-      // In a real app, we would update the deal's stage in the database here
-      // For now, we'll just show a toast and would normally update the state
-      
       // Create a copy of the deal with the updated stage
       const updatedDeal = { ...draggingDeal, stage: targetStage };
       
-      toast({
-        title: "Deal moved",
-        description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
-      });
-      
-      // In a real application with proper state management:
-      // 1. Update the deal in the database
-      // 2. Refresh the deals or update the local state
+      try {
+        // Update the deal in the database
+        const { error } = await supabase
+          .from('deals')
+          .update({ stage: targetStage })
+          .eq('id', draggingDeal.id);
+          
+        if (error) {
+          throw error;
+        }
+        
+        toast({
+          title: "Deal moved",
+          description: `${draggingDeal.title} moved from ${stageInfo[draggingDeal.stage].title} to ${stageInfo[targetStage].title}`,
+        });
+        
+        // In real application, we would refresh the deals list
+        // For now, we can update the local state to reflect the change
+        // This is handled by the parent component through react-query refetch
+      } catch (error) {
+        console.error('Error updating deal:', error);
+        toast({
+          title: "Error",
+          description: "Could not update deal stage. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
     
     setDraggingDeal(null);
@@ -92,14 +109,50 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
     setShowDealDetails(true);
   };
   
-  const handleUpdateDeal = (updatedValues: any) => {
+  const handleUpdateDeal = async (updatedValues: any) => {
     if (selectedDeal) {
-      // In a real app, we would update the deal in the database here
-      toast({
-        title: "Deal updated",
-        description: `${updatedValues.title} has been updated successfully.`,
-      });
-      setShowDealDetails(false);
+      try {
+        // Convert value to number if it's a string
+        const value = typeof updatedValues.value === 'string' 
+          ? parseFloat(updatedValues.value) 
+          : updatedValues.value;
+        
+        // Convert probability to number if it's a string
+        const probability = updatedValues.probability 
+          ? (typeof updatedValues.probability === 'string' 
+              ? parseInt(updatedValues.probability, 10) 
+              : updatedValues.probability)
+          : null;
+        
+        const dealData = {
+          title: updatedValues.title,
+          value,
+          stage: updatedValues.stage,
+          probability,
+          contact_id: updatedValues.contactId || null,
+          description: updatedValues.description || null
+        };
+        
+        const { error } = await supabase
+          .from('deals')
+          .update(dealData)
+          .eq('id', selectedDeal.id);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Deal updated",
+          description: `${updatedValues.title} has been updated successfully.`,
+        });
+        setShowDealDetails(false);
+      } catch (error) {
+        console.error('Error updating deal:', error);
+        toast({
+          title: "Error",
+          description: "Could not update deal. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
   
@@ -199,6 +252,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ dealsByStage }) => {
               onSubmit={handleUpdateDeal} 
               onCancel={() => setShowDealDetails(false)} 
               defaultValues={{
+                id: selectedDeal.id,
                 title: selectedDeal.title,
                 value: selectedDeal.value.toString(),
                 stage: selectedDeal.stage,
