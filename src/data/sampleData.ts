@@ -1,4 +1,3 @@
-
 export interface Contact {
   id: string;
   name: string;
@@ -63,7 +62,30 @@ export interface WebForm {
   createdAt: string;
 }
 
-// Sample data
+export interface LeadCampaign {
+  id: string;
+  name: string;
+  type: string;
+  totalLeads: number;
+  processedLeads: number;
+  movedToPipeline: number;
+  createdAt: string;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  position?: string;
+  status: 'new' | 'contacted' | 'qualified' | 'unqualified' | 'in_pipeline';
+  campaignId: string;
+  createdAt: string;
+  contactedAt?: string;
+  notes?: string;
+}
+
 export const contacts: Contact[] = [
   {
     id: '1',
@@ -414,6 +436,145 @@ export const webForms: WebForm[] = [
     submissions: 128,
     conversionRate: 8.7,
     createdAt: '2023-07-10T11:45:00Z'
+  }
+];
+
+export const leadCampaigns: LeadCampaign[] = [
+  {
+    id: 'campaign-1',
+    name: 'Logistics Companies Q4',
+    type: 'Logistics',
+    totalLeads: 150,
+    processedLeads: 85,
+    movedToPipeline: 42,
+    createdAt: '2023-10-05T09:00:00Z'
+  },
+  {
+    id: 'campaign-2',
+    name: 'Fintech Startups',
+    type: 'Fintech',
+    totalLeads: 120,
+    processedLeads: 120,
+    movedToPipeline: 68,
+    createdAt: '2023-09-18T14:30:00Z'
+  },
+  {
+    id: 'campaign-3',
+    name: 'Healthcare Providers',
+    type: 'Healthcare',
+    totalLeads: 200,
+    processedLeads: 75,
+    movedToPipeline: 30,
+    createdAt: '2023-10-10T11:15:00Z'
+  },
+  {
+    id: 'campaign-4',
+    name: 'Technology Companies',
+    type: 'Technology',
+    totalLeads: 180,
+    processedLeads: 0,
+    movedToPipeline: 0,
+    createdAt: '2023-10-20T08:45:00Z'
+  }
+];
+
+export const leads: Lead[] = [
+  {
+    id: 'lead-1',
+    name: 'Thomas Wilson',
+    email: 'thomas.wilson@logisticspro.com',
+    phone: '+1 555-123-7890',
+    company: 'Logistics Pro',
+    position: 'Operations Director',
+    status: 'qualified',
+    campaignId: 'campaign-1',
+    createdAt: '2023-10-06T10:30:00Z',
+    contactedAt: '2023-10-08T14:15:00Z',
+    notes: 'Interested in our enterprise solution. Schedule a demo.'
+  },
+  {
+    id: 'lead-2',
+    name: 'Emily Chen',
+    email: 'emily.chen@fastship.com',
+    phone: '+1 555-987-6543',
+    company: 'FastShip Inc',
+    position: 'Logistics Manager',
+    status: 'in_pipeline',
+    campaignId: 'campaign-1',
+    createdAt: '2023-10-06T11:45:00Z',
+    contactedAt: '2023-10-09T09:30:00Z'
+  },
+  {
+    id: 'lead-3',
+    name: 'Marcus Johnson',
+    email: 'marcus@globalfreight.co',
+    phone: '+1 555-456-7890',
+    company: 'Global Freight Co',
+    position: 'CEO',
+    status: 'new',
+    campaignId: 'campaign-1',
+    createdAt: '2023-10-07T08:20:00Z'
+  },
+  {
+    id: 'lead-4',
+    name: 'Sophia Rodriguez',
+    email: 'sophia@paynow.io',
+    phone: '+1 555-234-5678',
+    company: 'PayNow',
+    position: 'Product Manager',
+    status: 'contacted',
+    campaignId: 'campaign-2',
+    createdAt: '2023-09-20T13:10:00Z',
+    contactedAt: '2023-09-22T10:45:00Z',
+    notes: 'Sent product information. Follow up in one week.'
+  },
+  {
+    id: 'lead-5',
+    name: 'Daniel Park',
+    email: 'daniel@fintechsolutions.com',
+    phone: '+1 555-876-5432',
+    company: 'Fintech Solutions',
+    position: 'CTO',
+    status: 'qualified',
+    campaignId: 'campaign-2',
+    createdAt: '2023-09-21T09:30:00Z',
+    contactedAt: '2023-09-25T14:00:00Z'
+  },
+  {
+    id: 'lead-6',
+    name: 'Olivia Martinez',
+    email: 'olivia@securepay.co',
+    company: 'SecurePay',
+    position: 'Sales Director',
+    status: 'in_pipeline',
+    campaignId: 'campaign-2',
+    createdAt: '2023-09-22T15:40:00Z',
+    contactedAt: '2023-09-26T11:30:00Z'
+  },
+  {
+    id: 'lead-7',
+    name: 'Robert Kim',
+    email: 'robert.kim@medicalcenter.org',
+    phone: '+1 555-345-6789',
+    company: 'City Medical Center',
+    position: 'IT Director',
+    status: 'contacted',
+    campaignId: 'campaign-3',
+    createdAt: '2023-10-12T10:15:00Z',
+    contactedAt: '2023-10-15T09:00:00Z'
+  },
+  {
+    id: 'lead-8',
+    name: 'Jennifer Adams',
+    email: 'jennifer@healthpartners.com',
+    phone: '+1 555-654-3210',
+    company: 'Health Partners',
+    position: 'COO',
+    status: 'unqualified',
+    campaignId: 'campaign-3',
+    createdAt: '2023-10-13T14:50:00Z',
+    contactedAt: '2023-10-16T11:20:00Z',
+    notes: 'Not interested at this time. Budget constraints.'
   }
 ];
 

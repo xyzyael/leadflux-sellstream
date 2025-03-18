@@ -9,6 +9,7 @@ import Contacts from "./pages/Contacts";
 import Pipeline from "./pages/Pipeline";
 import Marketing from "./pages/Marketing";
 import Analytics from "./pages/Analytics";
+import Leads from "./pages/Leads";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/" element={<Dashboard />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/leads" element={<Leads />} />
           <Route path="/marketing" element={<Marketing />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="*" element={<NotFound />} />

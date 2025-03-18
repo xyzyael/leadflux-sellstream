@@ -9,7 +9,8 @@ import {
   Calendar, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ListPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,7 @@ const Sidebar: React.FC = () => {
   const links = [
     { to: '/', icon: <Layout size={20} />, label: 'Dashboard' },
     { to: '/contacts', icon: <Users size={20} />, label: 'Contacts' },
+    { to: '/leads', icon: <ListPlus size={20} />, label: 'Leads' },
     { to: '/pipeline', icon: <BarChart size={20} />, label: 'Pipeline' },
     { to: '/marketing', icon: <Inbox size={20} />, label: 'Marketing' },
     { to: '/analytics', icon: <Calendar size={20} />, label: 'Analytics' },
