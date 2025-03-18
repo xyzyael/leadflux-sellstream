@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -60,7 +59,6 @@ const LeadTable: React.FC = () => {
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
-  // Fetch leads from Supabase
   const { data: leads = [], isLoading: isLoadingLeads } = useQuery({
     queryKey: ['leads'],
     queryFn: async () => {
@@ -95,7 +93,6 @@ const LeadTable: React.FC = () => {
     }
   });
   
-  // Fetch campaigns from Supabase
   const { data: campaigns = [], isLoading: isLoadingCampaigns } = useQuery({
     queryKey: ['campaigns'],
     queryFn: async () => {
@@ -158,7 +155,6 @@ const LeadTable: React.FC = () => {
     }
     
     try {
-      // Update leads status to 'in_pipeline'
       const { error } = await supabase
         .from('leads')
         .update({ status: 'in_pipeline' })
@@ -166,7 +162,6 @@ const LeadTable: React.FC = () => {
       
       if (error) throw error;
       
-      // Refresh leads data
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       
       toast({
@@ -174,7 +169,6 @@ const LeadTable: React.FC = () => {
         description: `${selectedLeads.length} leads have been moved to the pipeline.`
       });
       
-      // Clear selections after moving
       setSelectedLeads([]);
     } catch (error) {
       console.error('Error moving leads to pipeline:', error);
@@ -187,6 +181,7 @@ const LeadTable: React.FC = () => {
   };
   
   const handleOpenConvertDialog = (lead: Lead) => {
+    console.log("Opening convert dialog for lead:", lead);
     setSelectedLead(lead);
     setShowConvertDialog(true);
   };
@@ -437,7 +432,6 @@ const LeadTable: React.FC = () => {
         </Table>
       </div>
 
-      {/* Convert Lead to Contact Dialog */}
       {selectedLead && (
         <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
           <DialogContent className="sm:max-w-[500px]">

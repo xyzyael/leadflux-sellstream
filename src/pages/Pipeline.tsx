@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import KanbanBoard from '@/components/pipeline/KanbanBoard';
@@ -42,7 +41,6 @@ const Pipeline: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch deals from Supabase
   const { data: deals = [], isLoading } = useQuery({
     queryKey: ['deals'],
     queryFn: async () => {
@@ -83,7 +81,6 @@ const Pipeline: React.FC = () => {
     }
   });
   
-  // Organize deals by stage
   const dealsByStage = deals.reduce((acc, deal) => {
     if (!acc[deal.stage]) {
       acc[deal.stage] = [];
@@ -106,8 +103,8 @@ const Pipeline: React.FC = () => {
   
   const handleAddDeal = async (values: any) => {
     try {
-      // We directly use the values from the form since it's already validated
-      // Convert value and probability to numbers
+      console.log("Adding new deal with values:", values);
+      
       const value = typeof values.value === 'string' 
         ? parseFloat(values.value) 
         : values.value;
@@ -127,13 +124,14 @@ const Pipeline: React.FC = () => {
         description: values.description || null
       };
       
+      console.log("Inserting deal with data:", dealData);
+      
       const { error } = await supabase
         .from('deals')
         .insert(dealData);
         
       if (error) throw error;
       
-      // Refresh deals data
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       
       toast({
