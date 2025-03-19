@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
@@ -7,7 +7,8 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+// Memoize the MainLayout component to prevent unnecessary re-renders
+const MainLayout: React.FC<MainLayoutProps> = memo(({ children }) => {
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
@@ -19,6 +20,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       </div>
     </div>
   );
-};
+});
+
+// DisplayName for React DevTools
+MainLayout.displayName = 'MainLayout';
 
 export default MainLayout;

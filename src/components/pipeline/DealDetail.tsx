@@ -154,9 +154,18 @@ const DealDetail: React.FC = () => {
       if (!leadError && leadData) {
         leadSource = leadData;
       }
+
+      // Map the contact data to include createdAt (required by the Contact type)
+      const contactWithCreatedAt = deal.contacts ? {
+        ...deal.contacts,
+        createdAt: deal.contacts.created_at // Add the createdAt field that matches the Contact type
+      } : null;
       
       return {
-        deal,
+        deal: {
+          ...deal,
+          contacts: contactWithCreatedAt
+        },
         activities: activities || [],
         colleagues: colleagues || [],
         relatedDeals: relatedDeals || [],

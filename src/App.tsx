@@ -3,7 +3,22 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from '@/components/ui/toaster';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './App.css';
+
+// Create a client with optimized configuration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+    },
+  },
+});
 
 // Lazy-loaded page components
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
@@ -15,7 +30,7 @@ const Marketing = lazy(() => import('@/pages/Marketing'));
 const Analytics = lazy(() => import('@/pages/Analytics'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
-// Fallback for lazy loading
+// Improved fallback for lazy loading
 const PageLoader = () => (
   <div className="flex items-center justify-center h-screen">
     <p>Loading...</p>
@@ -25,22 +40,24 @@ const PageLoader = () => (
 function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="crm-ui-theme">
-      <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/pipeline/deal/:dealId" element={<DealDetailPage />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/leads" element={<Leads />} />
-            <Route path="/marketing" element={<Marketing />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-      <Toaster />
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/pipeline/deal/:dealId" element={<DealDetailPage />} />
+              <Route path="/contacts" element={<Contacts />} />
+              <Route path="/leads" element={<Leads />} />
+              <Route path="/marketing" element={<Marketing />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+        <Toaster />
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }
