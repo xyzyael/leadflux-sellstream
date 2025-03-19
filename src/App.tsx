@@ -6,8 +6,19 @@ import { Toaster } from '@/components/ui/toaster';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './App.css';
 
-// Create a client
-const queryClient = new QueryClient();
+// Create a client with optimized configuration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+    },
+  },
+});
 
 // Lazy-loaded page components
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
@@ -19,7 +30,7 @@ const Marketing = lazy(() => import('@/pages/Marketing'));
 const Analytics = lazy(() => import('@/pages/Analytics'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
-// Fallback for lazy loading
+// Improved fallback for lazy loading
 const PageLoader = () => (
   <div className="flex items-center justify-center h-screen">
     <p>Loading...</p>
