@@ -1,9 +1,10 @@
 
-import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from '@/components/ui/toaster';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import PageLoader from '@/components/layout/PageLoader';
 import './App.css';
 
 // Create a client with optimized configuration
@@ -20,7 +21,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Lazy-loaded page components
+// Preload important components with reduced chunks
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Pipeline = lazy(() => import('@/pages/Pipeline'));
 const DealDetailPage = lazy(() => import('@/pages/DealDetailPage'));
@@ -30,12 +31,40 @@ const Marketing = lazy(() => import('@/pages/Marketing'));
 const Analytics = lazy(() => import('@/pages/Analytics'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
-// Improved fallback for lazy loading
-const PageLoader = () => (
-  <div className="flex items-center justify-center h-screen">
-    <p>Loading...</p>
-  </div>
-);
+// Route prefetching component
+const RoutePrefetcher = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // Prefetch related routes based on current location
+    const prefetchRelatedRoutes = () => {
+      const path = location.pathname;
+      
+      if (path === '/dashboard') {
+        // Prefetch pipeline when on dashboard
+        import('@/pages/Pipeline');
+        import('@/components/pipeline/DealCard');
+      } else if (path === '/pipeline') {
+        // Prefetch deal details when on pipeline
+        import('@/pages/DealDetailPage');
+        import('@/components/pipeline/DealDetail');
+      } else if (path === '/contacts') {
+        // Prefetch leads when on contacts
+        import('@/pages/Leads');
+      }
+    };
+    
+    // Use requestIdleCallback for non-critical prefetching
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(prefetchRelatedRoutes);
+    } else {
+      setTimeout(prefetchRelatedRoutes, 1000);
+    }
+    
+  }, [location.pathname]);
+  
+  return null;
+};
 
 function App() {
   return (
@@ -54,6 +83,7 @@ function App() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <RoutePrefetcher />
           </Suspense>
         </BrowserRouter>
         <Toaster />

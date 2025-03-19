@@ -1,10 +1,141 @@
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Deal } from '@/data/sampleData';
+import { useEffect } from 'react';
+
+// Prefetches deal data when hovering over deal items
+export const usePrefetchDeal = () => {
+  const queryClient = useQueryClient();
+  
+  return (dealId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ['deal', dealId],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('deals')
+          .select(`
+            id,
+            title,
+            value,
+            stage,
+            contact_id,
+            created_at,
+            closed_at,
+            description,
+            probability,
+            contacts(
+              id,
+              name,
+              email,
+              phone,
+              company,
+              position,
+              tags,
+              status,
+              created_at,
+              last_contact,
+              avatar
+            )
+          `)
+          .eq('id', dealId)
+          .single();
+        
+        if (error) throw error;
+        
+        // Transform the data to match our client-side structure
+        return {
+          id: data.id,
+          title: data.title,
+          value: data.value,
+          stage: data.stage,
+          contactId: data.contact_id,
+          createdAt: data.created_at,
+          closedAt: data.closed_at,
+          description: data.description,
+          probability: data.probability,
+          contact: data.contacts ? {
+            id: data.contacts.id,
+            name: data.contacts.name,
+            email: data.contacts.email,
+            phone: data.contacts.phone,
+            company: data.contacts.company,
+            position: data.contacts.position,
+            tags: data.contacts.tags,
+            status: data.contacts.status,
+            createdAt: data.contacts.created_at,
+            lastContact: data.contacts.last_contact,
+            avatar: data.contacts.avatar
+          } : undefined
+        } as Deal;
+      },
+      staleTime: 2 * 60 * 1000, // 2 minutes
+    });
+  };
+};
 
 // Hook for fetching deals with optimization
 export const useDealsQuery = () => {
+  const queryClient = useQueryClient();
+  
+  // Prefetch individual deals on mount
+  useEffect(() => {
+    const prefetchTopDeals = async () => {
+      const { data } = await supabase
+        .from('deals')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (data) {
+        data.forEach(deal => {
+          queryClient.prefetchQuery({
+            queryKey: ['deal', deal.id],
+            queryFn: async () => {
+              const { data, error } = await supabase
+                .from('deals')
+                .select(`
+                  id,
+                  title,
+                  value,
+                  stage,
+                  contact_id,
+                  created_at,
+                  closed_at,
+                  description,
+                  probability,
+                  contacts(id, name, company)
+                `)
+                .eq('id', deal.id)
+                .single();
+              
+              if (error) throw error;
+              
+              return {
+                id: data.id,
+                title: data.title,
+                value: data.value,
+                stage: data.stage,
+                contactId: data.contact_id,
+                createdAt: data.created_at,
+                closedAt: data.closed_at,
+                description: data.description,
+                probability: data.probability,
+                contact: data.contacts ? {
+                  id: data.contacts.id,
+                  name: data.contacts.name,
+                  company: data.contacts.company
+                } : undefined
+              } as Deal;
+            },
+          });
+        });
+      }
+    };
+    
+    prefetchTopDeals();
+  }, [queryClient]);
+  
   return useQuery({
     queryKey: ['deals'],
     queryFn: async () => {
