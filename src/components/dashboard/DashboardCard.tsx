@@ -19,12 +19,21 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   action 
 }) => {
   return (
-    <Card className={cn("shadow-sm hover:shadow-md transition-all duration-300", className)}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg font-medium">{title}</CardTitle>
-        {action}
+    <Card className={cn(
+      "shadow-sm hover:shadow-md transition-all duration-300 border-b-2 border-primary/20", 
+      className
+    )}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 bg-muted/30">
+        <CardTitle className="text-lg font-medium flex items-center">
+          {title}
+        </CardTitle>
+        {action && (
+          <div className="flex items-center">
+            {action}
+          </div>
+        )}
       </CardHeader>
-      <CardContent className={cn("pt-0", contentClassName)}>
+      <CardContent className={cn("pt-4", contentClassName)}>
         {children}
       </CardContent>
     </Card>

@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, ArrowRight } from 'lucide-react';
+import { ArrowUpDown, ArrowRight, Briefcase, FileText, Calendar, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 interface DealTableProps {
   dealsByStage: Record<Deal['stage'], Deal[]>;
@@ -84,24 +85,24 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
   const getStageBadgeColor = (stage: string) => {
     switch (stage) {
       case 'lead':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-200';
       case 'contact':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 hover:bg-purple-200';
       case 'proposal':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 hover:bg-orange-200';
       case 'negotiation':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 hover:bg-yellow-200';
       case 'closed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200';
     }
   };
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border shadow-sm">
       <Table>
-        <TableHeader>
+        <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead>
               <Button 
@@ -110,11 +111,17 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                 className="font-medium"
                 onClick={() => handleSort('title')}
               >
+                <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
                 Deal Title
                 <ArrowUpDown className="ml-2 h-4 w-4" />
               </Button>
             </TableHead>
-            <TableHead>Contact / Company</TableHead>
+            <TableHead>
+              <div className="flex items-center">
+                <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
+                Contact / Company
+              </div>
+            </TableHead>
             <TableHead>
               <Button 
                 variant="ghost" 
@@ -122,6 +129,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                 className="font-medium"
                 onClick={() => handleSort('value')}
               >
+                <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
                 Value
                 <ArrowUpDown className="ml-2 h-4 w-4" />
               </Button>
@@ -144,6 +152,7 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                 className="font-medium"
                 onClick={() => handleSort('created_at')}
               >
+                <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                 Created
                 <ArrowUpDown className="ml-2 h-4 w-4" />
               </Button>
@@ -154,14 +163,17 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
         <TableBody>
           {sortedDeals.length > 0 ? (
             sortedDeals.map((deal) => (
-              <TableRow key={deal.id} className="cursor-pointer hover:bg-muted/50">
+              <TableRow 
+                key={deal.id} 
+                className="cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => handleViewDeal(deal)}
+              >
                 <TableCell 
                   className="font-medium"
-                  onClick={() => handleViewDeal(deal)}
                 >
                   {deal.title}
                 </TableCell>
-                <TableCell onClick={() => handleViewDeal(deal)}>
+                <TableCell>
                   <div>
                     {deal.contact?.name}
                     {deal.contact?.company && (
@@ -171,27 +183,31 @@ const DealTable: React.FC<DealTableProps> = ({ dealsByStage }) => {
                     )}
                   </div>
                 </TableCell>
-                <TableCell onClick={() => handleViewDeal(deal)}>
+                <TableCell className="font-semibold text-primary">
                   {formatCurrency(deal.value)}
                   {deal.probability && (
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground font-normal">
                       {deal.probability}% probability
                     </div>
                   )}
                 </TableCell>
-                <TableCell onClick={() => handleViewDeal(deal)}>
-                  <Badge className={getStageBadgeColor(deal.stage)}>
+                <TableCell>
+                  <Badge className={cn("shadow-sm", getStageBadgeColor(deal.stage))}>
                     {deal.stage.charAt(0).toUpperCase() + deal.stage.slice(1)}
                   </Badge>
                 </TableCell>
-                <TableCell onClick={() => handleViewDeal(deal)}>
+                <TableCell>
                   {formatDate(deal.createdAt)}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button 
-                    variant="ghost" 
+                    variant="outline" 
                     size="icon"
-                    onClick={() => handleViewDeal(deal)}
+                    className="h-8 w-8 shadow-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewDeal(deal);
+                    }}
                   >
                     <ArrowRight className="h-4 w-4" />
                   </Button>
