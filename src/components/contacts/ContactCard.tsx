@@ -3,7 +3,7 @@ import React from 'react';
 import { Contact } from '@/data/sampleData';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Mail, Building2, Calendar, Tag } from 'lucide-react';
+import { Phone, Mail, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ContactCardProps {
@@ -67,15 +67,14 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, className, onContact
   return (
     <Card 
       className={cn(
-        "overflow-hidden hover:shadow-md transition-all duration-300 cursor-pointer",
-        "bg-gradient-to-b from-card to-muted/10", 
+        "overflow-hidden hover:shadow-md transition-all duration-300 cursor-pointer", 
         className
       )}
       onClick={() => onContactSelect?.(contact)}
     >
       <CardContent className="p-4">
         <div className="flex items-start space-x-4">
-          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium shadow-sm border border-primary/5">
+          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
             {contact.avatar ? (
               <img 
                 src={contact.avatar} 
@@ -97,56 +96,37 @@ const ContactCard: React.FC<ContactCardProps> = ({ contact, className, onContact
                   </p>
                 )}
               </div>
-              <Badge variant="secondary" className={cn(getStatusColor(contact.status), "shadow-sm")}>
+              <Badge variant="secondary" className={cn(getStatusColor(contact.status))}>
                 {contact.status.charAt(0).toUpperCase() + contact.status.slice(1)}
               </Badge>
             </div>
             
             <div className="mt-3 space-y-1">
               {contact.email && (
-                <div className="flex items-center text-sm bg-muted/30 p-1.5 rounded-md">
+                <div className="flex items-center text-sm">
                   <Mail className="h-3 w-3 mr-2 text-muted-foreground" />
                   <span className="truncate">{contact.email}</span>
                 </div>
               )}
               
               {contact.phone && (
-                <div className="flex items-center text-sm bg-primary/5 p-1.5 rounded-md">
+                <div className="flex items-center text-sm">
                   <Phone className="h-3 w-3 mr-2 text-muted-foreground" />
                   <span>{contact.phone}</span>
                 </div>
               )}
               
               {contact.company && (
-                <div className="flex items-center text-sm p-1.5 rounded-md bg-muted/30">
+                <div className="flex items-center text-sm">
                   <Building2 className="h-3 w-3 mr-2 text-muted-foreground" />
                   <span className="truncate">{contact.company}</span>
                 </div>
               )}
             </div>
             
-            {contact.tags && contact.tags.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {contact.tags.slice(0, 2).map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-xs flex items-center">
-                    <Tag className="h-2 w-2 mr-1" />
-                    {tag}
-                  </Badge>
-                ))}
-                {contact.tags.length > 2 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{contact.tags.length - 2} more
-                  </Badge>
-                )}
-              </div>
-            )}
-            
             <div className="mt-3 pt-3 border-t border-border">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground flex items-center">
-                  <Calendar className="h-3 w-3 mr-1" />
-                  Last contact:
-                </span>
+                <span className="text-muted-foreground">Last contact:</span>
                 <span className="font-medium">{formatLastContact(contact.lastContact)}</span>
               </div>
             </div>
