@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   Table, 
@@ -11,14 +11,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Search, ArrowRight, Filter, UserPlus } from 'lucide-react';
+import { Search, ArrowRight, RefreshCw, Filter, UserPlus } from 'lucide-react';
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Select, 
   SelectContent, 
@@ -29,6 +29,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import LeadToContactForm from './LeadToContactForm';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Lead {
@@ -50,87 +51,61 @@ interface Campaign {
 
 const LeadTable: React.FC = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string[]>(['new', 'contacted', 'qualified']);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [isLoadingLeads, setIsLoadingLeads] = useState(true);
-  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true);
   
-  useEffect(() => {
-    const fetchLeads = async () => {
-      setIsLoadingLeads(true);
-      try {
-        const { data, error } = await supabase
-          .from('leads')
-          .select(`
-            id,
-            name,
-            email,
-            phone,
-            company,
-            position,
-            status,
-            created_at,
-            campaign_id
-          `)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        setLeads(data.map(lead => ({
-          id: lead.id,
-          name: lead.name,
-          email: lead.email,
-          phone: lead.phone,
-          company: lead.company,
-          position: lead.position,
-          status: lead.status,
-          createdAt: lead.created_at,
-          campaignId: lead.campaign_id
-        })));
-      } catch (error) {
-        console.error('Error fetching leads:', error);
-        toast({
-          title: "Failed to load leads",
-          description: "There was a problem loading leads data.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoadingLeads(false);
-      }
-    };
-    
-    const fetchCampaigns = async () => {
-      setIsLoadingCampaigns(true);
-      try {
-        const { data, error } = await supabase
-          .from('campaigns')
-          .select('id, name')
-          .order('name');
-        
-        if (error) throw error;
-        
-        setCampaigns(data as Campaign[]);
-      } catch (error) {
-        console.error('Error fetching campaigns:', error);
-        toast({
-          title: "Failed to load campaigns",
-          description: "There was a problem loading campaigns data.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoadingCampaigns(false);
-      }
-    };
-    
-    fetchLeads();
-    fetchCampaigns();
-  }, [toast]);
+  const { data: leads = [], isLoading: isLoadingLeads } = useQuery({
+    queryKey: ['leads'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select(`
+          id,
+          name,
+          email,
+          phone,
+          company,
+          position,
+          status,
+          created_at,
+          campaign_id
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      return data.map(lead => ({
+        id: lead.id,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        company: lead.company,
+        position: lead.position,
+        status: lead.status,
+        createdAt: lead.created_at,
+        campaignId: lead.campaign_id
+      })) as Lead[];
+    }
+  });
+  
+  const { data: campaigns = [], isLoading: isLoadingCampaigns } = useQuery({
+    queryKey: ['campaigns'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      
+      return data as Campaign[];
+    }
+  });
 
   const handleStatusFilterChange = (status: string) => {
     setStatusFilter(current => 
@@ -187,34 +162,7 @@ const LeadTable: React.FC = () => {
       
       if (error) throw error;
       
-      const { data, error: fetchError } = await supabase
-        .from('leads')
-        .select(`
-          id,
-          name,
-          email,
-          phone,
-          company,
-          position,
-          status,
-          created_at,
-          campaign_id
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (fetchError) throw fetchError;
-      
-      setLeads(data.map(lead => ({
-        id: lead.id,
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone,
-        company: lead.company,
-        position: lead.position,
-        status: lead.status,
-        createdAt: lead.created_at,
-        campaignId: lead.campaign_id
-      })));
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
       
       toast({
         title: "Leads moved to pipeline",
@@ -265,42 +213,12 @@ const LeadTable: React.FC = () => {
     return leads.filter(lead => lead.status === status).length;
   };
 
-  const handleConvertSuccess = async () => {
+  const handleConvertSuccess = () => {
     setShowConvertDialog(false);
     setSelectedLead(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select(`
-          id,
-          name,
-          email,
-          phone,
-          company,
-          position,
-          status,
-          created_at,
-          campaign_id
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      setLeads(data.map(lead => ({
-        id: lead.id,
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone,
-        company: lead.company,
-        position: lead.position,
-        status: lead.status,
-        createdAt: lead.created_at,
-        campaignId: lead.campaign_id
-      })));
-    } catch (error) {
-      console.error('Error refreshing leads:', error);
-    }
+    queryClient.invalidateQueries({ queryKey: ['leads'] });
+    queryClient.invalidateQueries({ queryKey: ['contacts'] });
+    queryClient.invalidateQueries({ queryKey: ['deals'] });
     
     toast({
       title: "Lead converted",

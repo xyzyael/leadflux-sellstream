@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -35,160 +37,134 @@ const DealDetail: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [dealData, setDealData] = useState<{
-    deal: any;
-    activities: any[];
-    colleagues: any[];
-    relatedDeals: any[];
-    leadSource: any;
-  } | null>(null);
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = React.useState('overview');
   
-  useEffect(() => {
-    const fetchDealData = async () => {
-      setIsLoading(true);
-      setError(null);
+  // Fetch deal with related data (contacts, activities, notes)
+  const { data: dealData, isLoading, error } = useQuery({
+    queryKey: ['deal', dealId],
+    queryFn: async () => {
+      console.log(`Fetching deal data for ID: ${dealId}`);
       
-      try {
-        console.log(`Fetching deal data for ID: ${dealId}`);
-        
-        if (!dealId) throw new Error('Deal ID is required');
-        
-        const { data: deal, error: dealError } = await supabase
-          .from('deals')
-          .select(`
+      if (!dealId) throw new Error('Deal ID is required');
+      
+      const { data: deal, error: dealError } = await supabase
+        .from('deals')
+        .select(`
+          id, 
+          title, 
+          value, 
+          stage, 
+          contact_id, 
+          created_at, 
+          closed_at, 
+          description, 
+          probability,
+          contacts (
             id, 
-            title, 
-            value, 
-            stage, 
-            contact_id, 
-            created_at, 
-            closed_at, 
-            description, 
-            probability,
-            contacts (
-              id, 
-              name, 
-              email,
-              phone,
-              company, 
-              position,
-              tags,
-              status,
-              created_at,
-              last_contact,
-              avatar
-            )
-          `)
-          .eq('id', dealId)
-          .single();
-        
-        if (dealError) {
-          console.error("Error fetching deal:", dealError);
-          throw dealError;
-        }
-        
-        console.log("Fetched deal data:", deal);
-        
-        // Fetch related activities
-        const { data: activities, error: activitiesError } = await supabase
-          .from('activities')
-          .select('*')
-          .or(`deal_id.eq.${dealId},contact_id.eq.${deal.contact_id}`)
-          .order('date', { ascending: false });
-        
-        if (activitiesError) {
-          console.error("Error fetching activities:", activitiesError);
-        }
-        
-        // If contact has a company, fetch colleagues from the same company
-        let colleagues = [];
-        if (deal.contacts?.company) {
-          const { data: colleaguesData, error: colleaguesError } = await supabase
-            .from('contacts')
-            .select('*')
-            .eq('company', deal.contacts.company)
-            .neq('id', deal.contact_id);
-          
-          if (colleaguesError) {
-            console.error("Error fetching colleagues:", colleaguesError);
-          } else {
-            colleagues = colleaguesData || [];
-          }
-        }
-        
-        // Fetch other deals for the same contact/company
-        const { data: relatedDeals, error: relatedDealsError } = await supabase
-          .from('deals')
-          .select(`
-            id, 
-            title, 
-            value, 
-            stage, 
-            created_at, 
-            closed_at, 
-            probability
-          `)
-          .eq('contact_id', deal.contact_id)
-          .neq('id', dealId)
-          .order('created_at', { ascending: false });
-        
-        if (relatedDealsError) {
-          console.error("Error fetching related deals:", relatedDealsError);
-        }
-        
-        // Fetch campaign info if contact came from a lead
-        let leadSource = null;
-        const { data: leadData, error: leadError } = await supabase
-          .from('leads')
-          .select(`
-            id, 
-            status, 
+            name, 
+            email,
+            phone,
+            company, 
+            position,
+            tags,
+            status,
             created_at,
-            contacted_at,
-            notes,
-            campaigns (
-              id,
-              name,
-              type,
-              status
-            )
-          `)
-          .eq('email', deal.contacts?.email)
-          .maybeSingle();
-        
-        if (!leadError && leadData) {
-          leadSource = leadData;
-        }
-
-        // Map the contact data to include createdAt (required by the Contact type)
-        const contactWithCreatedAt = deal.contacts ? {
-          ...deal.contacts,
-          createdAt: deal.contacts.created_at // Add the createdAt field that matches the Contact type
-        } : null;
-        
-        setDealData({
-          deal: {
-            ...deal,
-            contacts: contactWithCreatedAt
-          },
-          activities: activities || [],
-          colleagues: colleagues || [],
-          relatedDeals: relatedDeals || [],
-          leadSource
-        });
-      } catch (err) {
-        console.error("Error fetching deal data:", err);
-        setError(err instanceof Error ? err : new Error('Unknown error occurred'));
-      } finally {
-        setIsLoading(false);
+            last_contact,
+            avatar
+          )
+        `)
+        .eq('id', dealId)
+        .single();
+      
+      if (dealError) {
+        console.error("Error fetching deal:", dealError);
+        throw dealError;
       }
-    };
-    
-    fetchDealData();
-  }, [dealId]);
+      
+      console.log("Fetched deal data:", deal);
+      
+      // Fetch related activities
+      const { data: activities, error: activitiesError } = await supabase
+        .from('activities')
+        .select('*')
+        .or(`deal_id.eq.${dealId},contact_id.eq.${deal.contact_id}`)
+        .order('date', { ascending: false });
+      
+      if (activitiesError) {
+        console.error("Error fetching activities:", activitiesError);
+      }
+      
+      // If contact has a company, fetch colleagues from the same company
+      let colleagues = [];
+      if (deal.contacts?.company) {
+        const { data: colleaguesData, error: colleaguesError } = await supabase
+          .from('contacts')
+          .select('*')
+          .eq('company', deal.contacts.company)
+          .neq('id', deal.contact_id);
+        
+        if (colleaguesError) {
+          console.error("Error fetching colleagues:", colleaguesError);
+        } else {
+          colleagues = colleaguesData || [];
+        }
+      }
+      
+      // Fetch other deals for the same contact/company
+      const { data: relatedDeals, error: relatedDealsError } = await supabase
+        .from('deals')
+        .select(`
+          id, 
+          title, 
+          value, 
+          stage, 
+          created_at, 
+          closed_at, 
+          probability
+        `)
+        .eq('contact_id', deal.contact_id)
+        .neq('id', dealId)
+        .order('created_at', { ascending: false });
+      
+      if (relatedDealsError) {
+        console.error("Error fetching related deals:", relatedDealsError);
+      }
+      
+      // Fetch campaign info if contact came from a lead
+      let leadSource = null;
+      const { data: leadData, error: leadError } = await supabase
+        .from('leads')
+        .select(`
+          id, 
+          status, 
+          created_at,
+          contacted_at,
+          notes,
+          campaigns (
+            id,
+            name,
+            type,
+            status
+          )
+        `)
+        .eq('email', deal.contacts?.email)
+        .maybeSingle();
+      
+      if (!leadError && leadData) {
+        leadSource = leadData;
+      }
+      
+      return {
+        deal,
+        activities: activities || [],
+        colleagues: colleagues || [],
+        relatedDeals: relatedDeals || [],
+        leadSource
+      };
+    },
+    enabled: !!dealId
+  });
   
   if (isLoading) {
     return (
@@ -278,6 +254,7 @@ const DealDetail: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left column - Deal Summary */}
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader className="pb-2">
@@ -370,6 +347,7 @@ const DealDetail: React.FC = () => {
             </TabsList>
             
             <TabsContent value="overview" className="mt-4 space-y-4">
+              {/* Contact Quick Info */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-md">Contact Information</CardTitle>
@@ -419,6 +397,7 @@ const DealDetail: React.FC = () => {
                 </CardFooter>
               </Card>
               
+              {/* Lead Source Info (if available) */}
               {leadSource && (
                 <Card>
                   <CardHeader className="pb-2">
@@ -464,6 +443,7 @@ const DealDetail: React.FC = () => {
                 </Card>
               )}
               
+              {/* Related Deals (if available) */}
               {relatedDeals.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
@@ -503,6 +483,7 @@ const DealDetail: React.FC = () => {
                 </Card>
               )}
               
+              {/* Recent Activities */}
               {activities.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
@@ -533,6 +514,7 @@ const DealDetail: React.FC = () => {
                 </Card>
               )}
               
+              {/* Company & Colleagues Info (if available) */}
               {contact.company && colleagues.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
@@ -657,6 +639,7 @@ const DealDetail: React.FC = () => {
           </Tabs>
         </div>
         
+        {/* Right column - Additional Info */}
         <div className="space-y-6">
           <Card>
             <CardHeader className="pb-2">
