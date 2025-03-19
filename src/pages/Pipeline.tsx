@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import KanbanBoard from '@/components/pipeline/KanbanBoard';
 import DealTable from '@/components/pipeline/DealTable';
@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Deal } from '@/data/sampleData';
 
 type ViewType = 'kanban' | 'table';
@@ -38,55 +37,72 @@ const Pipeline: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [valueFilter, setValueFilter] = useState<[number, number]>([0, 100000]);
   const [selectedStages, setSelectedStages] = useState<string[]>(['lead', 'contact', 'proposal', 'negotiation', 'closed']);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   
-  const { data: deals = [], isLoading } = useQuery({
-    queryKey: ['deals'],
-    queryFn: async () => {
-      console.log("Fetching deals data...");
-      const { data, error } = await supabase
-        .from('deals')
-        .select(`
-          id, 
-          title, 
-          value, 
-          stage, 
-          contact_id, 
-          created_at, 
-          closed_at, 
-          description, 
-          probability,
-          contacts (id, name, company)
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching deals:", error);
-        throw error;
+  // Fetch deals data
+  useEffect(() => {
+    const fetchDeals = async () => {
+      setIsLoading(true);
+      try {
+        console.log("Fetching deals data...");
+        const { data, error } = await supabase
+          .from('deals')
+          .select(`
+            id, 
+            title, 
+            value, 
+            stage, 
+            contact_id, 
+            created_at, 
+            closed_at, 
+            description, 
+            probability,
+            contacts (id, name, company)
+          `)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error("Error fetching deals:", error);
+          throw error;
+        }
+        
+        console.log("Fetched deals data:", data);
+        
+        const formattedDeals = data.map((deal) => ({
+          id: deal.id,
+          title: deal.title,
+          value: deal.value,
+          stage: deal.stage,
+          contactId: deal.contact_id,
+          createdAt: deal.created_at,
+          closedAt: deal.closed_at,
+          description: deal.description,
+          probability: deal.probability,
+          contact: deal.contacts ? {
+            id: deal.contacts.id,
+            name: deal.contacts.name,
+            company: deal.contacts.company
+          } : undefined
+        })) as Deal[];
+        
+        setDeals(formattedDeals);
+      } catch (error) {
+        console.error("Error in fetchDeals:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load deals. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-      
-      console.log("Fetched deals data:", data);
-      
-      return data.map((deal) => ({
-        id: deal.id,
-        title: deal.title,
-        value: deal.value,
-        stage: deal.stage,
-        contactId: deal.contact_id,
-        createdAt: deal.created_at,
-        closedAt: deal.closed_at,
-        description: deal.description,
-        probability: deal.probability,
-        contact: deal.contacts ? {
-          id: deal.contacts.id,
-          name: deal.contacts.name,
-          company: deal.contacts.company
-        } : undefined
-      })) as Deal[];
-    }
-  });
+    };
+    
+    fetchDeals();
+  }, [toast]);
   
   const dealsByStage = deals.reduce((acc, deal) => {
     if (!acc[deal.stage]) {
@@ -133,7 +149,7 @@ const Pipeline: React.FC = () => {
       
       console.log("Inserting deal with data:", dealData);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('deals')
         .insert({
           title: values.title,
@@ -142,11 +158,48 @@ const Pipeline: React.FC = () => {
           probability: values.probability ? parseInt(values.probability, 10) : null,
           contact_id: values.contactId,
           description: values.description || null
-        });
+        })
+        .select();
         
       if (error) throw error;
       
-      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      // Refresh deals after adding a new one
+      const { data: updatedDeals, error: fetchError } = await supabase
+        .from('deals')
+        .select(`
+          id, 
+          title, 
+          value, 
+          stage, 
+          contact_id, 
+          created_at, 
+          closed_at, 
+          description, 
+          probability,
+          contacts (id, name, company)
+        `)
+        .order('created_at', { ascending: false });
+        
+      if (fetchError) throw fetchError;
+      
+      const formattedDeals = updatedDeals.map((deal) => ({
+        id: deal.id,
+        title: deal.title,
+        value: deal.value,
+        stage: deal.stage,
+        contactId: deal.contact_id,
+        createdAt: deal.created_at,
+        closedAt: deal.closed_at,
+        description: deal.description,
+        probability: deal.probability,
+        contact: deal.contacts ? {
+          id: deal.contacts.id,
+          name: deal.contacts.name,
+          company: deal.contacts.company
+        } : undefined
+      })) as Deal[];
+      
+      setDeals(formattedDeals);
       
       toast({
         title: "Deal added successfully",
